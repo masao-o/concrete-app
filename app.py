@@ -236,4 +236,8 @@ if check_password():
                         output = io.BytesIO()
                         wb.save(output)
                         st.markdown("---")
-                        st.download_button(label="📥 官庁・役所・提出用 Excel報告書をダウンロード", data=output.getvalue(), file_name=f"
+                        st.download_button(label="📥 官庁・役所・提出用 Excel報告書をダウンロード", data=output.getvalue(), file_name=f"【劣化診断書】{project_name if project_name else 'コンクリート構造物'}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                    except Exception as e:
+                        st.error(f"解析中にエラーが発生しました: {e}")
+        else:
+            st.info("「この内容で高精密AI解析を実行する」ボタンを押すと、役所に提出可能なプロレベルの診断結果が表示されます。")
