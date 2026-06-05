@@ -42,13 +42,13 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 2. パスワードセッション管理
+# 2. パスワードセッション管理（ご要望の「tn0000」に変更しました！）
 if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
 
 def check_password():
     def password_entered():
-        if st.session_state["password"] == "masao0605":
+        if st.session_state["password"] == "tn0000":
             st.session_state["authenticated"] = True
             del st.session_state["password"]
         else:
@@ -74,13 +74,15 @@ if check_password():
     with st.expander("📘 本アプリの取扱説明書（マニュアル）を開く", expanded=False):
         st.markdown("""
         ### 【アプリの使い方】
-        1. **実務情報の入力：** 画面左側（または中央）の入力欄に、物件名や調査位置などの法定・提出用書類情報を入力してください。
+        1. **実務情報の入力：** 画面左側の入力欄に、物件名や調査位置などの情報を入力してください。
         2. **プロ診断士用の環境条件選択：** 左側のサイドバーから、構造物の種類やセメントの種類、置かれている詳細な環境を設定します。
         3. **写真のアップロード＆AI診断：** 診断写真をアップロードし、「高精密AI解析を実行する」ボタンを押すと、すべての条件を考慮したプロレベルの診断書データと提出用Excelが作成されます。
         """)
 
-    # 🛑 太田さんの本物のAPIキーをここに完全直結（これでエラーは100%出ません！）
-    api_key = "AIzaSyD-O647K9Xg-mH4N0_Prc"
+    # 🔑 セキュリティエラーを完全に防止する「自動鍵読み込みの仕組み」に修正
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        api_key = st.secrets.get("GEMINI_API_KEY", "")
 
     # 🛠️ プロのコンクリート診断士視点で必要な「環境・条件設定項目」
     st.sidebar.markdown("<h2 style='color: white;'>🛠️ プロ診断士用 環境条件設定</h2>", unsafe_allow_html=True)
@@ -134,187 +136,32 @@ if check_password():
         st.markdown("<h3 style='color: white;'>📊 高精密診断レポート</h3>", unsafe_allow_html=True)
         
         if uploaded_file is not None and 'execute_analysis' in locals() and execute_analysis:
-            with st.spinner("🔍 プロの診断士AIが、実務書類情報・環境条件・写真を総合的にマトリクス解析中..."):
-                try:
-                    # AIの起動設定
-                    genai.configure(api_key=api_key)
-                    model = genai.GenerativeModel('gemini-1.5-pro')
-                    
-                    # プロ診断士用の膨大なデータをAIの頭脳へインプット
-                    prompt = f"""
-                    あなたは日本コンクリート工学会認定の「コンクリート診断士」における、国内最高峰の有識者です。
-                    以下の【実務書類情報】、【プロ診断士用環境条件】、および【写真】を重ね合わせ、役所や元請けの技術コンサルタントにそのまま提出できる、非常に精密かつ厳格な診断を行ってください。
-                    
-                    【実務書類情報】
-                    ・物件名/工事名: {project_name}
-                    ・調査位置/箇所: {location_name}
-                    ・調査担当者: {inspector_name}
-                    
-                    【プロ診断士用環境条件】
-                    ・構造物種別: {struct_type}
-                    ・設置環境: {env_location}
-                    ・湿潤状態: {wet_status}
-                    ・セメント種別: {cement_type}
-                    ・経過年数: {elapsed_years}
-                    ・目視の主症状: {crack_type}
-                    
-                    必ず以下の4つの項目を解析・特定し、正確なJSONフォーマットのみで出力してください。
-                    ひび割れ幅（width）とひび割れ長さ（length）は、経過年数や環境、写真のクラックから実務上想定される最も現実的で詳細な数値を推測して算出してください。
-                    
-                    ```json
-                    {{
-                      "width": 0.15,
-                      "length": 18.3,
-                      "reason": "設置環境（{env_location}）や湿潤状態（{wet_status}）、経過年数（{elapsed_years}）をプロの技術的見地から踏まえた、科学的根拠に基づく詳細な劣化原因の推測を記述してください。",
-                      "solution": "土木学会やコンクリート工学会の補修指針に則った、具体的な補修工法（例: エポキシ樹脂低圧注入工法、ポリマーセメントモルタル充填工法、表面含浸工法など）と、今後の点検計画に関する提案を詳しく記述してください。"
-                    }}
-                    ```
-                    余計な挨拶や説明文は絶対に省き、上記のJSONのみを返してください。
-                    """
-                    
-                    response = model.generate_content([prompt, image])
-                    
+            if not api_key:
+                st.error("管理画面のSecretsにAPIキーが保存されていません。")
+            else:
+                with st.spinner("🔍 プロの診断士AIが、環境条件と写真を総合的にマトリクス解析中..."):
                     try:
-                        clean_text = response.text.replace("```json", "").replace("```", "").strip()
-                        result = json.loads(clean_text)
-                        width_val = float(result.get("width", 0.0))
-                        length_val = float(result.get("length", 0.0))
-                        reason_text = result.get("reason", "解析不能")
-                        solution_text = result.get("solution", "解析不能")
-                    except:
-                        # バックアップ用実務データ
-                        width_val = 0.18
-                        length_val = 22.5
-                        reason_text = f"対象構造物（{struct_type}）は、{env_location}かつ{wet_status}という過酷な環境下において、経過年数（{elapsed_years}）に伴う乾燥収縮ストレス、および微細な構造挙動が複合的に作用し、中性化の進行と相まって{crack_type}に至ったものと推測されます。"
-                        solution_text = f"ひび割れ幅が微細なため、社内基準に基づき【赤色警告判定】となります。これ以上の劣化因子の侵入を防ぐため、エポキシ樹脂による「ひび割れ注入工法」を推奨します。また、{wet_status}を考慮し、定期的な追跡調査を計画してください。"
-
-                    # 5. 太田さん専用の特殊カラー判定ルール (0.2mm以下: 赤 / 0.2mm以上: 黄色)
-                    if width_val <= 0.2:
-                        color_code = "#EF4444"  # 赤色
-                        status_title = f"🔴 【要確認】ひび割れ幅: {width_val} mm"
-                        alert_desc = f"⚠️ 社内プロジェクト基準：0.2mm以下のため【赤色表示】で注意を喚起しています"
-                    else:
-                        color_code = "#EAB308"  # 黄色
-                        status_title = f"🟡 【経過観察】ひび割れ幅: {width_val} mm"
-                        alert_desc = f"💡 社内プロジェクト基準：0.2mm以上のため【黄色表示】で経過観察を推奨しています"
-
-                    # 画面表示（くっきり白文字ベース）
-                    st.markdown(f"""
-                    <div class='status-card'>
-                        <h3 style='color: {color_code} !important; margin:0; font-size:22px;'>{status_title}</h3>
-                        <p style='color: #F1F5F9 !important; font-size: 14px; margin: 8px 0 0 0; font-weight: bold;'>{alert_desc}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    st.markdown(f"📏 **それぞれのひび割れ想定長さ:** <span style='font-size:24px; font-weight:bold; color:#38BDF8;'>{length_val} cm</span>", unsafe_allow_html=True)
-                    
-                    st.markdown("<h4 style='color: white; margin-top:20px;'>📑 コンクリート診断士AIによる劣化原因の深い推測</h4>", unsafe_allow_html=True)
-                    st.info(reason_text)
-                    
-                    st.markdown("<h4 style='color: white;'>🛠 提案される具体的な補修・対策工法</h4>", unsafe_allow_html=True)
-                    st.success(solution_text)
-
-                    # 6. 官庁・役所・コンサル提出用デザインのExcel報告書を自動生成
-                    wb = openpyxl.Workbook()
-                    ws = wb.active
-                    ws.title = "コンクリート構造物劣化診断書"
-                    ws.views.sheetView[0].showGridLines = True # 方眼紙のグリッド線を出す
-                    
-                    # タイトル行
-                    ws.merge_cells("A1:G1")
-                    ws["A1"] = "コンクリート構造物 劣化診断報告書（実務提出用書式）"
-                    ws["A1"].font = openpyxl.styles.Font(name="MS ゴシック", size=18, bold=True, color="FFFFFF")
-                    ws["A1"].alignment = openpyxl.styles.Alignment(horizontal="center", vertical="center")
-                    ws["A1"].fill = openpyxl.styles.PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")
-                    ws.row_dimensions[1].height = 45
-                    
-                    # 🏢 太田さんが新設した「実務書類情報」を表に美しく配置
-                    ws["A3"] = "物件名（工事名）"
-                    ws["B3"] = project_name if project_name else "（未入力）"
-                    ws["A4"] = "調査対象・位置"
-                    ws["B4"] = location_name if location_name else "（未入力）"
-                    ws["A5"] = "調査会社名"
-                    ws["B5"] = "Ｔ＆日本メンテ開発株式会社"
-                    ws["A6"] = "調査技術者"
-                    ws["B6"] = inspector_name if inspector_name else "（未入力）"
-                    ws["A7"] = "調査実施日"
-                    ws["B7"] = datetime.now().strftime("%Y年%m%d日 %H:%M")
-                    
-                    # プロの環境条件データ
-                    ws["D4"] = "■ 構造物種別"
-                    ws["E4"] = struct_type
-                    ws["D5"] = "■ 設置環境"
-                    ws["E5"] = env_location
-                    ws["D6"] = "■ 乾湿状態"
-                    ws["E6"] = wet_status
-                    ws["D7"] = "■ 主たる症状"
-                    ws["E7"] = crack_type
-                    
-                    # 見出しの装飾
-                    for r in range(3, 8):
-                        ws[f"A{r}"].font = openpyxl.styles.Font(name="MS ゴシック", bold=True, color="1E3A8A")
-                        ws[f"D{r}"].font = openpyxl.styles.Font(name="MS ゴシック", bold=True)
-                    
-                    # 診断詳細枠
-                    ws["A9"] = "■ AI高精密解析・診断判定データ"
-                    ws["A9"].font = openpyxl.styles.Font(name="MS ゴシック", size=13, bold=True, color="1E3A8A")
-                    
-                    headers = ["評価対象項目", "コンクリート診断士AIによる抽出数値、および技術的所見"]
-                    ws.merge_cells("B10:G10")
-                    ws["A10"] = headers[0]
-                    ws["B10"] = headers[1]
-                    
-                    for col_letter in ["A", "B"]:
-                        cell = ws[f"{col_letter}10"]
-                        cell.font = openpyxl.styles.Font(name="MS ゴシック", bold=True, color="FFFFFF")
-                        cell.fill = openpyxl.styles.PatternFill(start_color="334155", end_color="334155", fill_type="solid")
-                    
-                    data_rows = [
-                        ("想定されるひび割れ幅 (mm)", f"{width_val} mm （{'要精密補修・赤判定' if width_val <= 0.2 else '経過観察・黄判定'})"),
-                        ("それぞれの想定ひび長さ (cm)", f"{length_val} cm"),
-                        ("劣化原因に関する工学的推測", reason_text),
-                        ("推奨される具体的な補修・対策案", solution_text)
-                    ]
-                    
-                    for idx, (item, val) in enumerate(data_rows, 11):
-                        ws.cell(row=idx, column=1, value=item).font = openpyxl.styles.Font(name="MS ゴシック", bold=True)
-                        ws.merge_cells(start_row=idx, start_column=2, end_row=idx, end_column=7)
-                        ws.cell(row=idx, column=2, value=val).font = openpyxl.styles.Font(name="MS ゴシック")
-                        ws.cell(row=idx, column=2).alignment = openpyxl.styles.Alignment(wrap_text=True)
-                        ws.row_dimensions[idx].height = 45 if idx > 12 else 25
-                    
-                    # 列幅の最適化
-                    ws.column_dimensions['A'].width = 28
-                    ws.column_dimensions['B'].width = 30
-                    ws.column_dimensions['D'].width = 15
-                    ws.column_dimensions['E'].width = 25
-                    
-                    # 🏢 会社のロゴ画像をエクセルの右上に自動埋め込み
-                    if os.path.exists("logo.png"):
-                        ws.add_image(ExcelImage("logo.png"), "F3")
+                        genai.configure(api_key=api_key)
+                        model = genai.GenerativeModel('gemini-1.5-pro')
                         
-                    # 📷 現場写真をエクセル報告書の下部に自動埋め込み
-                    img_buffer = io.BytesIO()
-                    image.save(img_buffer, format="PNG")
-                    img_buffer.seek(0)
-                    xl_img = ExcelImage(img_buffer)
-                    xl_img.width = 350
-                    xl_img.height = 260
-                    ws.add_image(xl_img, "A16")
-                    
-                    # Excelのダウンロード処理
-                    output = io.BytesIO()
-                    wb.save(output)
-                    processed_data = output.getvalue()
-                    
-                    st.markdown("---")
-                    st.download_button(
-                        label="📥 官庁・役所・提出用 Excel報告書をダウンロード",
-                        data=processed_data,
-                        file_name=f"【劣化診断書】{project_name if project_name else 'コンクリート構造物'}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
-                except Exception as e:
-                    st.error(f"解析中にエラーが発生しました: {e}")
-        else:
-            st.info("「この内容で高精密AI解析を実行する」ボタンを押すと、ここにプロレベルの診断結果と、手入力した物件名・ロゴ・写真がすべて入った完成済みのExcel報告書ダウンロードボタンが表示されます。")
+                        prompt = f"""
+                        あなたは日本コンクリート工学会認定の「コンクリート診断士」における、国内最高峰の有識者です。
+                        以下の【実務書類情報】、【プロ診断士用環境条件】、および【写真】を重ね合わせ、役所や技術コンサルタントに提出できる、精密な診断を行ってください。
+                        
+                        【プロ診断士用環境条件】
+                        ・構造物種別: {struct_type}
+                        ・設置環境: {env_location}
+                        ・湿潤状態: {wet_status}
+                        
+                        必ず以下の4つの項目を特定し、正確なJSONフォーマットのみで出力してください。
+                        ひび割れ幅（width）とひび割れ長さ（length）は、実務上想定される最も現実的な数値を推測して算出してください。
+                        
+                        ```json
+                        {{
+                          "width": 0.15,
+                          "length": 18.3,
+                          "reason": "科学的根拠に基づく詳細な劣化原因の推測を記述",
+                          "solution": "具体的な補修工法と、今後の点検計画に関する提案を記述"
+                        }}
+                        ```
+                        余計な挨拶や説明文は絶対に省き、上記のJSONのみを返してください。
