@@ -11,26 +11,42 @@ from datetime import datetime
 # 1. ページ設定（高コントラストUI）
 st.set_page_config(page_title="T&N コンクリート劣化診断 AI Suite Pro", layout="wide")
 
-# 【超重要修正】サイドバーの薄グレー背景自体を、濃いダークネイビーに塗り替えて白飛びを根本解決！
+# 【視認性完全解決】入力枠内のヒント文字（プレースホルダー）やマニュアル文字をクッキリ見える色に強制上書き！
 st.markdown("""
     <style>
     /* 全体およびメインエリアの背景 */
     .main { background-color: #0F172A; color: #FFFFFF; }
     .stApp { background-color: #0F172A; }
     
-    /* 左側サイドバーの背景を薄グレーから引き締まった濃い紺色に強制上書き */
+    /* 左側サイドバーの背景を濃い紺色に固定 */
     section[data-testid="stSidebar"] {
         background-color: #1E293B !important;
         border-right: 1px solid #334155;
     }
     
-    /* すべての見出し・テキスト・ラベル・チェックボックス文字を純白にして視認性を最優先 */
-    h1, h2, h3, h4, h5, h6, p, span, label, .stMarkdown, .stSidebar label, .stSidebar p, .stSidebar span { 
+    /* すべての見出し・ラベル文字を純白にして視認性を最優先 */
+    h1, h2, h3, h4, h5, h6, label, .stMarkdown, .stSidebar label, .stSidebar p, .stSidebar span { 
         color: #FFFFFF !important; 
         font-family: 'Helvetica Neue', Arial, sans-serif;
     }
     
-    /* チェックボックスの文字も純白に固定 */
+    /* 💥 【ここを修正】入力枠の中の文字（工事名など）を濃くしてはっきり見えるようにする */
+    input::placeholder, textarea::placeholder {
+        color: #475569 !important;
+        opacity: 1 !important;
+        font-weight: bold !important;
+    }
+    input, textarea {
+        color: #0F172A !important; /* 入力した後の文字は黒でクッキリ */
+        font-weight: bold !important;
+    }
+    
+    /* 📘 取扱説明書（マニュアル）の見出し文字を白く見やすく修正 */
+    .stExpander p, .stExpander span, .stExpander div {
+        color: #FFFFFF !important;
+    }
+    
+    /* チェックボックスの文字 */
     div.stCheckbox > label > div[data-testid="stMarkdownContainer"] > p {
         color: #FFFFFF !important;
         font-weight: bold !important;
@@ -79,13 +95,17 @@ if check_password():
     elapsed_years = st.sidebar.selectbox("⑤ 供用年数（経過年数）", ["（未選択）", "5年未満（初期欠陥の可能性）", "5年以上〜20年未満", "20年以上〜50年未満", "50年以上（高経年化）"])
     crack_type = st.sidebar.selectbox("⑥ 目視での主たる劣化症状", ["（未選択・写真から自動判定）", "ひび割れ（単一・規則性）", "亀甲状のひび割れ（ASRなどの疑い）", "エフロレッセンス（白華）の析出伴う", "コンクリートの剥離・鉄筋露出（爆裂現象）", "漏水・遊離石灰を伴う錆汁"])
 
+    # 📘 取扱説明書（マニュアル）
+    with st.expander("📘 本アプリの取扱説明書（マニュアル）を開く", expanded=False):
+        st.markdown("### 【アプリの使い方】\n1. 写真をアップロードし「高精密AI解析を実行する」ボタンを押すだけでAI診断が始まります。")
+
     col1, col2 = st.columns([1, 1])
 
     with col1:
         st.markdown("### 🏢 提出用 業務情報入力（空欄でもOK）")
-        project_name = st.text_input("項目A：物件名（工事名・業務名）", placeholder="（工事名など）")
-        location_name = st.text_input("項目B：調査位置・測定箇所", placeholder="（測定位置など）")
-        inspector_name = st.text_input("項目C：調査担当者（コンクリート診断士名）", placeholder="（氏名など）")
+        project_name = st.text_input("項目A：物件名（工事名・業務名）", placeholder="（例：〇〇高架橋修繕工事に伴う劣化調査）")
+        location_name = st.text_input("項目B：調査位置・測定箇所", placeholder="（例：A1橋台 正面左側中央部）")
+        inspector_name = st.text_input("項目C：調査担当者（コンクリート診断士名）", placeholder="（例：太田 正雄）")
         
         st.markdown("### 🔧 人間による補足情報入力（重複なし）")
         cb_salt = st.checkbox("海岸線から2km以内（塩害リスク）")
@@ -153,11 +173,12 @@ if check_password():
                         st.markdown("<h4 style='color: white; margin-top:20px;'>📑 コンクリート診断士AIによる調査報告</h4>", unsafe_allow_html=True)
                         st.info(full_result_text)
 
-                        # Excelの印刷バランス設定
+                        # --- ここからExcelの究極バランス・レイアウト精査 ---
                         wb = openpyxl.Workbook()
                         ws = wb.active
                         ws.title = "コンクリート構造物劣化診断書"
                         
+                        # ページ全体設定（横幅はA4に固定し、縦は自動で2枚目に美しく流れる設定）
                         ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
                         ws.page_setup.paperSize = ws.PAPERSIZE_A4
                         ws.sheet_properties.pageSetUpPr.fitToPage = True
@@ -165,6 +186,7 @@ if check_password():
                         ws.page_setup.fitToHeight = 0 
                         ws.views.sheetView[0].showGridLines = True
 
+                        # スタイル定義（官庁提出用の美しい配色）
                         font_title = Font(name="MS ゴシック", size=16, bold=True, color="FFFFFF")
                         font_header = Font(name="MS ゴシック", size=11, bold=True, color="FFFFFF")
                         font_label = Font(name="MS ゴシック", size=10, bold=True, color="1E3A8A")
@@ -174,17 +196,19 @@ if check_password():
                         fill_header = PatternFill(start_color="334155", end_color="334155", fill_type="solid")
                         fill_label = PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid")
                         
-                        thin_border_side = Side(border_style="thin", color="CBD5E1")
-                        border_cell = Border(left=thin_border_side, right=thin_border_side, top=thin_border_side, bottom=thin_border_side)
+                        thin_side = Side(border_style="thin", color="CBD5E1")
+                        border_cell = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
 
-                        ws.column_dimensions['A'].width = 25
+                        # A4縦に最適化された完璧な列幅バランス調整（全7列）
+                        ws.column_dimensions['A'].width = 24
                         ws.column_dimensions['B'].width = 15
                         ws.column_dimensions['C'].width = 15
                         ws.column_dimensions['D'].width = 15
                         ws.column_dimensions['E'].width = 15
                         ws.column_dimensions['F'].width = 15
-                        ws.column_dimensions['G'].width = 20
+                        ws.column_dimensions['G'].width = 21
 
+                        # タイトル行（上部余白とバランス）
                         ws.merge_cells("A1:G1")
                         ws["A1"] = "コンクリート構造物 劣化診断報告書（実務提出用調書）"
                         ws["A1"].font = font_title
@@ -192,6 +216,7 @@ if check_password():
                         ws["A1"].fill = fill_title
                         ws.row_dimensions[1].height = 40
 
+                        # 2. 基礎業務情報枠（等倍の美しいグリッド）
                         info_rows = [
                             ("物件名（工事名）", p_name, "■ 構造物種別", struct_type),
                             ("調査対象・位置", l_name, "■ 設置環境", env_location),
@@ -211,13 +236,15 @@ if check_password():
                             ws.merge_cells(start_row=i, start_column=6, end_row=i, end_column=7)
                             ws.cell(row=i, column=6, value=v2).font = font_data
                             ws.cell(row=i, column=6).alignment = Alignment(wrap_text=True, vertical="center")
-                            ws.row_dimensions[i].height = 25
+                            ws.row_dimensions[i].height = 26 # 読みやすい高さに統一
 
+                        # セクション見出し
                         ws.merge_cells("A8:G8")
                         ws["A8"] = "■ AI高精密解析・工学的診断判定データ"
                         ws["A8"].font = Font(name="MS ゴシック", size=11, bold=True, color="1E3A8A")
                         ws.row_dimensions[8].height = 25
 
+                        # 表ヘッダー
                         ws["A9"] = "評価項目"
                         ws.merge_cells("B9:G9")
                         ws["B9"] = "コンクリート診断士AIによる抽出数値、および技術的所見レポート"
@@ -227,8 +254,9 @@ if check_password():
                         ws["B9"].fill = fill_header
                         ws["A9"].alignment = Alignment(horizontal="center", vertical="center")
                         ws["B9"].alignment = Alignment(horizontal="center", vertical="center")
-                        ws.row_dimensions[9].height = 25
+                        ws.row_dimensions[9].height = 26
 
+                        # 数値データ行
                         ws["A10"] = "想定されるひび割れ幅"
                         ws.merge_cells("B10:G10")
                         ws["B10"] = f"{width_val} mm （要精密補修・赤色警告判定）"
@@ -239,34 +267,45 @@ if check_password():
                         ws["B11"] = f"{length_val} cm"
                         ws.row_dimensions[11].height = 24
 
+                        # ⭐ 【文字切れ完全自動防御】AIの長文の文字数から、最適な行の高さを数式で自動割り出し！
                         ws["A12"] = "AI詳細調査報告意見書\n(劣化原因・対策提案長文)"
                         ws.merge_cells("B12:G12")
                         ws["B12"] = full_result_text
                         ws["B12"].alignment = Alignment(wrap_text=True, vertical="top")
-                        ws.row_dimensions[12].height = 420  
+                        
+                        # 文字の長さに合わせて行高さを350から550まで安全に自動スライド計算
+                        text_length = len(full_result_text)
+                        calculated_height = max(380, min(580, int(text_length * 0.45)))
+                        ws.row_dimensions[12].height = calculated_height
 
                         for r in range(10, 13):
                             ws.cell(row=r, column=1).font = font_label
                             ws.cell(row=r, column=1).fill = fill_label
                             ws.cell(row=r, column=2).font = font_data
 
+                        # 写真セクションの見出し
                         ws.merge_cells("A14:G14")
                         ws["A14"] = "■ 診断対象構造物・現場調査写真"
                         ws["A14"].font = Font(name="MS ゴシック", size=11, bold=True, color="1E3A8A")
                         ws.row_dimensions[14].height = 25
 
+                        # すべてのテキストセルに綺麗な細線格子を適用
                         for row in ws.iter_rows(min_row=1, max_row=14, min_col=1, max_col=7):
                             for cell in row: cell.border = border_cell
 
+                        # 📷 現場写真をセンターに完璧に配置
                         img_buffer = io.BytesIO()
                         image.save(img_buffer, format="PNG")
                         img_buffer.seek(0)
                         xl_img = ExcelImage(img_buffer)
-                        xl_img.width = 500
-                        xl_img.height = 360
                         
+                        # A4縦の幅（A〜G列の合計幅）に美しくジャストフィットする横520ピクセルに調整
+                        xl_img.width = 520
+                        xl_img.height = 370
+                        
+                        # 2行分の美しいマージンを空けて「B16」から写真を綺麗に配置
                         ws.add_image(xl_img, "B16")
-                        ws.row_dimensions[16].height = 380
+                        ws.row_dimensions[16].height = 390
                         
                         output = io.BytesIO()
                         wb.save(output)
