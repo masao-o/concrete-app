@@ -110,11 +110,11 @@ if check_password():
             if not api_key:
                 st.error("管理画面のSecretsに有効なAPIキーが保存されていません。")
             else:
-                with st.spinner("🔍 プロの診断士AIが解析中..."):
+                with st.spinner("🔍 プロのコンクリート診断士AI(Gemini 2.5)が解析中..."):
                     try:
                         genai.configure(api_key=api_key)
-                        # 🔑 最新のAPIキー形式に対応した「gemini-1.5-flash」へ修正しました！
-                        model = genai.GenerativeModel('gemini-1.5-flash')
+                        # 🔑 太田さんのご指摘通り「gemini-2.5-flash」へ完全修正！！
+                        model = genai.GenerativeModel('gemini-2.5-flash')
                         
                         p_name = project_name if project_name else "記載なし（現場写真より診断）"
                         l_name = location_name if location_name else "記載なし"
@@ -124,8 +124,7 @@ if check_password():
                         response = model.generate_content([prompt, image])
                         
                         try:
-                            clean_text = response.text.replace("```json", "").replace("
-```", "").strip()
+                            clean_text = response.text.replace("```json", "").replace("```", "").strip()
                             result = json.loads(clean_text)
                             width_val = float(result.get("width", 0.18))
                             length_val = float(result.get("length", 22.5))
