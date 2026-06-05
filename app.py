@@ -1,6 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.drawing.image import Image as ExcelImage
@@ -11,20 +11,19 @@ from datetime import datetime
 # 1. ページ設定
 st.set_page_config(page_title="T&N コンクリート劣化診断 AI Suite Pro", layout="wide")
 
-# 【デザイン完全確定】文字色の競合をすべて排除！全てのタイトル、ラベル、テキストを「純白（#FFFFFF）」に統一して視認性を限界突破！
+# 【デザイン完全確定】文字色の競合、アップローダーの白飛びをすべて排除！
 st.markdown("""
     <style>
-    /* メインエリアとアプリ全体の背景（濃い紺） */
     .main { background-color: #0F172A; color: #FFFFFF; }
     .stApp { background-color: #0F172A; }
     
-    /* 左側サイドバーの背景（少し明るい紺） */
+    /* 左側サイドバーの背景 */
     section[data-testid="stSidebar"] {
         background-color: #1E293B !important;
         border-right: 1px solid #334155;
     }
     
-    /* アプリ内（メイン画面・サイドバー両方）のすべての文字、ラベル、チェックボックスの文字を「純白」に強制統一！ */
+    /* テキスト・ラベルの純白化（視認性100点） */
     h1, h2, h3, h4, h5, h6, p, span, label, .stMarkdown,
     [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span,
     .stCheckbox label, div[data-testid="stMarkdownContainer"] p { 
@@ -33,23 +32,33 @@ st.markdown("""
         font-weight: bold !important;
     }
     
-    /* 入力枠（白背景）の中の文字の見やすさ調整 */
+    /* 入力枠の中の文字（黒でハッキリ） */
     input, textarea {
-        color: #0F172A !important; /* 太田さんが打ち込んだ文字は黒でハッキリ */
+        color: #0F172A !important; 
         font-weight: bold !important;
     }
-    /* プレースホルダー（枠内のヒント文字）は見やすい濃いグレー */
     input::placeholder, textarea::placeholder {
         color: #64748B !important;
         opacity: 1 !important;
     }
     
-    /* 取扱説明書（マニュアル）の内部テキストも純白化 */
+    /* 写真アップロード枠の中の薄い文字を「濃いグレー」にして100%見えるように修正 */
+    div[data-testid="stFileUploader"] section {
+        background-color: #F8FAFC !important;
+        border: 2px dashed #94A3B8 !important;
+    }
+    div[data-testid="stFileUploader"] section div, 
+    div[data-testid="stFileUploader"] section p, 
+    div[data-testid="stFileUploader"] section span,
+    div[data-testid="stFileUploader"] section small {
+        color: #475569 !important;
+        font-weight: bold !important;
+    }
+    
     .stExpander div, .stExpander p, .stExpander span {
         color: #FFFFFF !important;
     }
     
-    /* ボタンデザイン */
     .stButton>button {
         background-color: #0284C7; color: #FFFFFF; border: 2px solid #38BDF8; border-radius: 12px;
         padding: 14px 28px; font-weight: bold; width: 100%; font-size: 18px;
@@ -59,7 +68,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 2. パスワード管理
 if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
 
@@ -83,7 +91,6 @@ if check_password():
 
     api_key = st.secrets.get("GEMINI_API_KEY", "")
 
-    # サイドバー設定
     st.sidebar.markdown("## 🛠️ プロ診断士用 環境条件設定")
     struct_type = st.sidebar.selectbox("① 構造物の種類", ["（未選択・写真から自動判定）", "橋梁（上部工/下部工）", "ボックスカルバート", "擁壁（重力式/もたれ式）", "トンネル覆工", "港湾・河川構造物", "建築物基礎・柱・壁"])
     env_location = st.sidebar.selectbox("② 設置環境・大分類", ["（未選択・写真から自動判定）", "一般地域（屋外・雨掛かり）", "一般地域（日陰・軒下）", "塩害警戒地域（海岸付近）", "寒冷地・凍枯地域", "屋内（常時乾燥）"])
@@ -92,7 +99,6 @@ if check_password():
     elapsed_years = st.sidebar.selectbox("⑤ 供用年数（経過年数）", ["（未選択）", "5年未満（初期欠陥の可能性）", "5年以上〜20年未満", "20年以上〜50年未満", "50年以上（高経年化）"])
     crack_type = st.sidebar.selectbox("⑥ 目視での主たる劣化症状", ["（未選択・写真から自動判定）", "ひび割れ（単一・規則性）", "亀甲状のひび割れ（ASRなどの疑い）", "エフロレッセンス（白華）の析出伴う", "コンクリートの剥離・鉄筋露出（爆裂現象）", "漏水・遊離石灰を伴う錆汁"])
 
-    # 📘 取扱説明書（マニュアル）
     with st.expander("📘 本アプリの取扱説明書（マニュアル）を開く", expanded=False):
         st.markdown("### 【アプリの使い方】\n1. 写真をアップロードし「高精密AI解析を実行する」ボタンを押すだけでAI診断が始まります。")
 
@@ -102,7 +108,7 @@ if check_password():
         st.markdown("### 🏢 提出用 業務情報入力（空欄でもOK）")
         project_name = st.text_input("項目A：物件名（工事名・業務名）", placeholder="（例：〇〇高架橋修繕工事に伴う劣化調査）")
         location_name = st.text_input("項目B：調査位置・測定箇所", placeholder="（例：A1橋台 正面左側中央部）")
-        inspector_name = st.text_input("項目C：調査担当者（コンクリート診断士名）", placeholder="（例：太田 正雄）")
+        inspector_name = st.text_input("項目C：調査担当者（コンクリート診断士名）", value="診断太郎", placeholder="（例：診断太郎）")
         
         st.markdown("### 🔧 人間による補足情報入力（重複なし）")
         cb_salt = st.checkbox("海岸線から2km以内（塩害リスク）")
@@ -127,7 +133,7 @@ if check_password():
         uploaded_file = st.file_uploader("ここにコンクリート構造物の写真をアップロードしてください", type=["jpg", "jpeg", "png"])
         if uploaded_file is not None:
             image = Image.open(uploaded_file)
-            st.image(image, caption="診断対象のコンクリート写真（元データ）", use_container_width=True)
+            st.image(image, caption="診断対象のコンクリート写真", use_container_width=True)
             execute_analysis = st.button("🚀 この内容で高精密AI解析を実行する")
 
     with col2:
@@ -147,7 +153,7 @@ if check_password():
                         
                         prompt = f"""
                         あなたは最高峰の「コンクリート診断士」です。国交省や大手コンサルに提出する公式な報告書を作成してください。
-                        写真を詳細に調査し、環境（{env_location}）、湿潤状態（{wet_status}）、人為的補足（{human_factors_text}）を踏まえて、以下の2点をそれぞれ専門用語を交えた【300〜400文字以上の重厚なプロの意見】として詳しく日本語で述ってください。
+                        写真を詳細に調査し、環境（{env_location}）、湿潤状態（{wet_status}）、人為的補足（{human_factors_text}）を踏まえて、以下の2点をそれぞれ専門用語を交えた【300〜400文字以上の重厚なプロの意見】として詳しく日本語で述べてください。
                         
                         1. 【劣化原因に関する深い工学的推測】: 中性化、塩害、ASR、乾燥収縮、不同沈下などから、ひび割れの進展方向、エフロ、漏水、錆汁の有無を写真から読み解き、支配的な劣化メカニズムを不動態被膜や遊離石灰、膨張圧などの用語を用いて詳細に解説してください。
                         2. 【推奨される具体的な対策案・補修工法】: 土木学会等の指針に則り、エポキシ樹脂低圧注入工法、ポリマーセメントモルタル充填工法、表面含浸工法など具体的な工法名とその選定理由、さらにコア採取による追跡調査の必要性を明記してください。
@@ -159,7 +165,6 @@ if check_password():
                         response = model.generate_content([prompt, image])
                         full_result_text = response.text
                         
-                        # AIのテキストから数値を賢く抽出（万が一失敗したら0.18mm、25cmをセット）
                         width_val = 0.18
                         length_val = 25.0
                         try:
@@ -172,47 +177,23 @@ if check_password():
                         except:
                             pass
 
-                        # 🛠️ 太田さんの新しい自動判定ルール (0.2mm以上は赤、0.2mm以下(未満)は黄色)
+                        # 太田さんご指定の自動カラー判定
                         if width_val >= 0.2:
-                            color_code = "#EF4444" # 鮮やかな赤
-                            line_color_pil = (239, 68, 68)
+                            color_code = "#EF4444"
                             status_title = f"🔴 【要精密確認】ひび割れ幅: {width_val} mm"
                             alert_desc = "⚠️ 判定基準：0.2mm以上のひび割れのため【赤色：要精密補修】となります"
                         else:
-                            color_code = "#EAB308" # 鮮やかな黄色
-                            line_color_pil = (234, 179, 8)
+                            color_code = "#EAB308"
                             status_title = f"🟡 【経過観察】ひび割れ幅: {width_val} mm"
                             alert_desc = "💡 判定基準：0.2mm以下のひび割れのため【黄色：経過観察】となります"
-
-                        # 📷 現場写真へのクラック自動トレース＆寸法テキスト合成処理（PILシステム）
-                        draw_image = image.copy().convert("RGB")
-                        draw = ImageDraw.Draw(draw_image)
-                        w_img, h_img = draw_image.size
-                        
-                        # 写真の中央にひび割れトレース線を引く
-                        start_pos = (int(w_img * 0.35), int(h_img * 0.4))
-                        end_pos = (int(w_img * 0.65), int(h_img * 0.6))
-                        draw.line([start_pos, end_pos], fill=line_color_pil, width=8) # 太い線でくっきり描画
-                        
-                        # 寸法テキストをスタンプ（見やすいように文字盤の背景に座布団を敷く）
-                        stamp_text = f"W={width_val}mm / L={length_val}cm"
-                        text_pos = (int(w_img * 0.35), int(h_img * 0.33))
-                        
-                        # 標準フォントで大きく太く描画
-                        draw.rectangle([text_pos[0]-10, text_pos[1]-5, text_pos[0]+380, text_pos[1]+40], fill=(15, 23, 42)) # 暗い背景枠
-                        draw.text(text_pos, stamp_text, fill=line_color_pil, stroke_width=2)
 
                         # 画面表示
                         st.markdown(f"<div class='status-card'><h3 style='color: {color_code} !important; margin:0; font-size:22px;'>{status_title}</h3><p style='color: #F1F5F9 !important; font-size: 14px; margin: 8px 0 0 0; font-weight: bold;'>{alert_desc}</p></div>", unsafe_allow_html=True)
                         st.markdown(f"📐 **それぞれのひび割れ想定長さ:** <span style='font-size:24px; font-weight:bold; color:#38BDF8;'>{length_val} cm</span>", unsafe_allow_html=True)
-                        
-                        st.markdown("<h4 style='color: white; margin-top:20px;'>📷 AI寸法・色付けスタンプ済み現場写真（エクセルに自動連動）</h4>", unsafe_allow_html=True)
-                        st.image(draw_image, caption=f"AI自動作図（幅に応じて{ '赤線' if width_val>=0.2 else '黄線' }＆寸法スタンプ済み）", use_container_width=True)
-                        
                         st.markdown("<h4 style='color: white; margin-top:20px;'>📑 コンクリート診断士AIによる調査報告</h4>", unsafe_allow_html=True)
                         st.info(full_result_text)
 
-                        # --- Excelの印刷バランス設定 ---
+                        # Excelの作成
                         wb = openpyxl.Workbook()
                         ws = wb.active
                         ws.title = "コンクリート構造物劣化診断書"
@@ -303,7 +284,6 @@ if check_password():
                         ws["B12"] = full_result_text
                         ws["B12"].alignment = Alignment(wrap_text=True, vertical="top")
                         
-                        # 文字数連動型オート・ハイトシステム
                         text_length = len(full_result_text)
                         calculated_height = max(390, min(590, int(text_length * 0.46)))
                         ws.row_dimensions[12].height = calculated_height
@@ -314,16 +294,16 @@ if check_password():
                             ws.cell(row=r, column=2).font = font_data
 
                         ws.merge_cells("A14:G14")
-                        ws["A14"] = "■ 診断対象構造物・現場調査写真（AI自動作図スタンプ済み）"
+                        ws["A14"] = "■ 診断対象構造物・現場調査写真"
                         ws["A14"].font = Font(name="MS ゴシック", size=11, bold=True, color="1E3A8A")
                         ws.row_dimensions[14].height = 25
 
                         for row in ws.iter_rows(min_row=1, max_row=14, min_col=1, max_col=7):
                             for cell in row: cell.border = border_cell
 
-                        # 📷 寸法と色が描き込まれた「draw_image」をエクセルへ美しく自動合成！
+                        # 【選択肢A】オリジナルの最高に綺麗な現場写真をそのままExcelへバシッと配置
                         img_buffer_xl = io.BytesIO()
-                        draw_image.save(img_buffer_xl, format="PNG")
+                        image.save(img_buffer_xl, format="PNG")
                         img_buffer_xl.seek(0)
                         xl_img = ExcelImage(img_buffer_xl)
                         xl_img.width = 520
