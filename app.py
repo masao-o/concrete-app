@@ -11,44 +11,38 @@ from datetime import datetime
 # 1. ページ設定（高コントラストUI）
 st.set_page_config(page_title="T&N コンクリート劣化診断 AI Suite Pro", layout="wide")
 
-# 【超重要修正】左側サイドバーやチェックボックスの文字を「濃い黒（#000000）」にして、白飛びを完全に解決！
+# 【超重要修正】サイドバーの薄グレー背景自体を、濃いダークネイビーに塗り替えて白飛びを根本解決！
 st.markdown("""
     <style>
+    /* 全体およびメインエリアの背景 */
     .main { background-color: #0F172A; color: #FFFFFF; }
     .stApp { background-color: #0F172A; }
     
-    /* 右側メイン画面の見出しやレポート文は純白で見やすく */
-    h1, h2, h3, h4, h5, h6, .status-card h3 { color: #FFFFFF !important; font-family: 'Helvetica Neue', Arial, sans-serif; }
+    /* 左側サイドバーの背景を薄グレーから引き締まった濃い紺色に強制上書き */
+    section[data-testid="stSidebar"] {
+        background-color: #1E293B !important;
+        border-right: 1px solid #334155;
+    }
     
-    /* 左側サイドバーのラベル、入力欄の文字、チェックボックスの文字をすべて濃い黒に強制変更 */
-    .stSidebar label, .stSidebar p, .stSidebar span, 
-    div[data-testid="stForm"] label, 
-    label[data-testid="stWidgetLabel"],
-    .stCheckbox label span,
-    p { 
+    /* すべての見出し・テキスト・ラベル・チェックボックス文字を純白にして視認性を最優先 */
+    h1, h2, h3, h4, h5, h6, p, span, label, .stMarkdown, .stSidebar label, .stSidebar p, .stSidebar span { 
         color: #FFFFFF !important; 
+        font-family: 'Helvetica Neue', Arial, sans-serif;
     }
     
-    /* 薄いグレー背景の領域にある文字だけをピンポイントで濃い黒にして視認性を爆上げ */
-    .css-17qbyv6 label, .stSelectbox label, .stTextInput label, .stCheckbox label {
-        color: #000000 !important;
-        font-weight: bold !important;
-    }
-    section[data-testid="stSidebar"] label {
-        color: #000000 !important;
-        font-weight: bold !important;
-        font-size: 15px !important;
-    }
+    /* チェックボックスの文字も純白に固定 */
     div.stCheckbox > label > div[data-testid="stMarkdownContainer"] > p {
-        color: #1E293B !important;
+        color: #FFFFFF !important;
         font-weight: bold !important;
     }
     
+    /* ボタンデザイン */
     .stButton>button {
         background-color: #0284C7; color: #FFFFFF; border: 2px solid #38BDF8; border-radius: 12px;
         padding: 14px 28px; font-weight: bold; width: 100%; font-size: 18px;
     }
-    .status-card { padding: 25px; background-color: #1E293B; border-radius: 16px; border-left: 8px solid #38BDF8; margin-bottom: 20px; }
+    .stButton>button:hover { background-color: #38BDF8; box-shadow: 0 0 20px #38BDF8; }
+    .status-card { padding: 25px; background-color: #0F172A; border-radius: 16px; border-left: 8px solid #38BDF8; margin-bottom: 20px; border-top: 1px solid #334155; border-right: 1px solid #334155; border-bottom: 1px solid #334155; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -136,7 +130,7 @@ if check_password():
                         
                         prompt = f"""
                         あなたは最高峰の「コンクリート診断士」です。国交省や大手コンサルに提出する公式な報告書を作成してください。
-                        写真を詳細に調査し、環境（{env_location}）、湿潤状態（{wet_status}）、人為的補足（{human_factors_text}）を踏めて、以下の2点をそれぞれ専門用語を交えた【300〜400文字以上の重厚なプロの意見】として詳しく日本語で述べてください。
+                        写真を詳細に調査し、環境（{env_location}）、湿潤状態（{wet_status}）、人為的補足（{human_factors_text}）を踏まえて、以下の2点をそれぞれ専門用語を交えた【300〜400文字以上の重厚なプロの意見】として詳しく日本語で述べてください。
                         
                         1. 【劣化原因に関する深い工学的推測】: 中性化、塩害、ASR、乾燥収縮、不同沈下などから、ひび割れの進展方向、エフロ、漏水、錆汁の有無を写真から読み解き、支配的な劣化メカニズムを不動態被膜や遊離石灰、膨張圧などの用語を用いて詳細に解説してください。
                         2. 【推奨される具体的な対策案・補修工法】: 土木学会等の指針に則り、エポキシ樹脂低圧注入工法、ポリマーセメントモルタル充填工法、表面含浸工法など具体的な工法名とその選定理由、さらにコア採取による追跡調査の必要性を明記してください。
@@ -155,24 +149,22 @@ if check_password():
                         alert_desc = "⚠️ 維持管理基準：0.2mm以下のため【赤色表示・要補修判定】"
 
                         st.markdown(f"<div class='status-card'><h3 style='color: {color_code} !important; margin:0; font-size:22px;'>{status_title}</h3><p style='color: #F1F5F9 !important; font-size: 14px; margin: 8px 0 0 0; font-weight: bold;'>{alert_desc}</p></div>", unsafe_allow_html=True)
-                        st.markdown(f"📐 **それぞれのひび割れ想定長さ:** <span style='font-size:24px; font-weight:bold; color:#38BDF8;'>{length_val} cm</span>", unsafe_allow_html=True)
+                        st.markdown(f"📏 **それぞれのひび割れ想定長さ:** <span style='font-size:24px; font-weight:bold; color:#38BDF8;'>{length_val} cm</span>", unsafe_allow_html=True)
                         st.markdown("<h4 style='color: white; margin-top:20px;'>📑 コンクリート診断士AIによる調査報告</h4>", unsafe_allow_html=True)
                         st.info(full_result_text)
 
-                        # --- Excelの文字切れ完全根絶・黄金バランス修正 ---
+                        # Excelの印刷バランス設定
                         wb = openpyxl.Workbook()
                         ws = wb.active
                         ws.title = "コンクリート構造物劣化診断書"
                         
-                        # 1枚に無理やり押し込めず、横幅だけA4に合わせ、縦は文字量に応じて自動で次ページに流す最高設定
                         ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
                         ws.page_setup.paperSize = ws.PAPERSIZE_A4
                         ws.sheet_properties.pageSetUpPr.fitToPage = True
-                        ws.page_setup.fitToWidth = 1  # 横幅はA4縦にピッタリ収める
-                        ws.page_setup.fitToHeight = 0 # 縦は文字数に合わせて何枚になっても途切れないようにする！
+                        ws.page_setup.fitToWidth = 1  
+                        ws.page_setup.fitToHeight = 0 
                         ws.views.sheetView[0].showGridLines = True
 
-                        # スタイル
                         font_title = Font(name="MS ゴシック", size=16, bold=True, color="FFFFFF")
                         font_header = Font(name="MS ゴシック", size=11, bold=True, color="FFFFFF")
                         font_label = Font(name="MS ゴシック", size=10, bold=True, color="1E3A8A")
@@ -185,7 +177,6 @@ if check_password():
                         thin_border_side = Side(border_style="thin", color="CBD5E1")
                         border_cell = Border(left=thin_border_side, right=thin_border_side, top=thin_border_side, bottom=thin_border_side)
 
-                        # カラム幅割り振り
                         ws.column_dimensions['A'].width = 25
                         ws.column_dimensions['B'].width = 15
                         ws.column_dimensions['C'].width = 15
@@ -194,7 +185,6 @@ if check_password():
                         ws.column_dimensions['F'].width = 15
                         ws.column_dimensions['G'].width = 20
 
-                        # タイトル行
                         ws.merge_cells("A1:G1")
                         ws["A1"] = "コンクリート構造物 劣化診断報告書（実務提出用調書）"
                         ws["A1"].font = font_title
@@ -202,7 +192,6 @@ if check_password():
                         ws["A1"].fill = fill_title
                         ws.row_dimensions[1].height = 40
 
-                        # 基本情報
                         info_rows = [
                             ("物件名（工事名）", p_name, "■ 構造物種別", struct_type),
                             ("調査対象・位置", l_name, "■ 設置環境", env_location),
@@ -224,13 +213,11 @@ if check_password():
                             ws.cell(row=i, column=6).alignment = Alignment(wrap_text=True, vertical="center")
                             ws.row_dimensions[i].height = 25
 
-                        # 診断データ見出し
                         ws.merge_cells("A8:G8")
                         ws["A8"] = "■ AI高精密解析・工学的診断判定データ"
                         ws["A8"].font = Font(name="MS ゴシック", size=11, bold=True, color="1E3A8A")
                         ws.row_dimensions[8].height = 25
 
-                        # 表ヘッダー
                         ws["A9"] = "評価項目"
                         ws.merge_cells("B9:G9")
                         ws["B9"] = "コンクリート診断士AIによる抽出数値、および技術的所見レポート"
@@ -242,7 +229,6 @@ if check_password():
                         ws["B9"].alignment = Alignment(horizontal="center", vertical="center")
                         ws.row_dimensions[9].height = 25
 
-                        # 判定データ
                         ws["A10"] = "想定されるひび割れ幅"
                         ws.merge_cells("B10:G10")
                         ws["B10"] = f"{width_val} mm （要精密補修・赤色警告判定）"
@@ -253,30 +239,25 @@ if check_password():
                         ws["B11"] = f"{length_val} cm"
                         ws.row_dimensions[11].height = 24
 
-                        # 【最重要】超長文意見書。文字が絶対に千切れないように行高さを「400」まで大幅拡大！
                         ws["A12"] = "AI詳細調査報告意見書\n(劣化原因・対策提案長文)"
                         ws.merge_cells("B12:G12")
                         ws["B12"] = full_result_text
                         ws["B12"].alignment = Alignment(wrap_text=True, vertical="top")
-                        ws.row_dimensions[12].height = 420  # 長文が綺麗に収まる十分な高さを確保！
+                        ws.row_dimensions[12].height = 420  
 
                         for r in range(10, 13):
                             ws.cell(row=r, column=1).font = font_label
                             ws.cell(row=r, column=1).fill = fill_label
                             ws.cell(row=r, column=2).font = font_data
 
-                        # 現場写真セクションの見出し
                         ws.merge_cells("A14:G14")
                         ws["A14"] = "■ 診断対象構造物・現場調査写真"
                         ws["A14"].font = Font(name="MS ゴシック", size=11, bold=True, color="1E3A8A")
                         ws.row_dimensions[14].height = 25
 
-                        # 格子罫線の適用
                         for row in ws.iter_rows(min_row=1, max_row=14, min_col=1, max_col=7):
-                            for cell in row:
-                                cell.border = border_cell
+                            for cell in row: cell.border = border_cell
 
-                        # 現場写真を少し下に離して、センタリング配置
                         img_buffer = io.BytesIO()
                         image.save(img_buffer, format="PNG")
                         img_buffer.seek(0)
@@ -284,7 +265,6 @@ if check_password():
                         xl_img.width = 500
                         xl_img.height = 360
                         
-                        # 写真を「B16」から配置し、写真用の行高さも十分確保
                         ws.add_image(xl_img, "B16")
                         ws.row_dimensions[16].height = 380
                         
