@@ -103,7 +103,7 @@ if check_password():
         uploaded_file = st.file_uploader("ここにコンクリート構造物の写真をアップロードしてください", type=["jpg", "jpeg", "png"])
         if uploaded_file is not None:
             image = Image.open(uploaded_file)
-            st.image(image, caption="診断対象のコンクリート写真", use_container_width=True)
+            st.image(image, caption="診断対象 of コンクリート写真", use_container_width=True)
             st.markdown("---")
             execute_analysis = st.button("🚀 この内容で高精密AI解析を実行する")
 
@@ -175,4 +175,40 @@ if check_password():
                         ws["A9"] = "■ AI高精密解析・診断判定データ"
                         ws["A9"].font = openpyxl.styles.Font(name="MS ゴシック", size=13, bold=True, color="1E3A8A")
                         ws.merge_cells("B10:G10")
-                        ws["A10"],
+                        ws["A10"], ws["B10"] = "評価対象項目", "技術的所見"
+                        
+                        for col_letter in ["A", "B"]:
+                            ws[f"{col_letter}10"].font = openpyxl.styles.Font(name="MS ゴシック", bold=True, color="FFFFFF")
+                            ws[f"{col_letter}10"].fill = openpyxl.styles.PatternFill(start_color="334155", end_color="334155", fill_type="solid")
+                        
+                        data_rows = [
+                            ("想定されるひび割れ幅 (mm)", f"{width_val} mm"),
+                            ("それぞれの想定ひび長さ (cm)", f"{length_val} cm"),
+                            ("劣化原因に関する工学的推測", reason_text),
+                            ("推奨される具体的な補修・対策案", solution_text)
+                        ]
+                        for idx, (item, val) in enumerate(data_rows, 11):
+                            ws.cell(row=idx, column=1, value=item).font = openpyxl.styles.Font(name="MS ゴシック", bold=True)
+                            ws.merge_cells(start_row=idx, start_column=2, end_row=idx, end_column=7)
+                            ws.cell(row=idx, column=2, value=val).font = openpyxl.styles.Font(name="MS ゴシック")
+                            ws.cell(row=idx, column=2).alignment = openpyxl.styles.Alignment(wrap_text=True)
+                            ws.row_dimensions[idx].height = 55 if idx > 12 else 25
+                        
+                        ws.column_dimensions['A'].width, ws.column_dimensions['B'].width = 28, 30
+                        ws.column_dimensions['D'].width, ws.column_dimensions['E'].width = 15, 25
+                        if os.path.exists("logo.png"): ws.add_image(ExcelImage("logo.png"), "F3")
+                        img_buffer = io.BytesIO()
+                        image.save(img_buffer, format="PNG")
+                        img_buffer.seek(0)
+                        xl_img = ExcelImage(img_buffer)
+                        xl_img.width, xl_img.height = 350, 260
+                        ws.add_image(xl_img, "A16")
+                        
+                        output = io.BytesIO()
+                        wb.save(output)
+                        st.markdown("---")
+                        st.download_button(label="📥 官庁・役所・提出用 Excel報告書をダウンロード", data=output.getvalue(), file_name=f"【劣化診断書】{project_name if project_name else 'コンクリート構造物'}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                    except Exception as e:
+                        st.error(f"解析中にエラーが発生しました: {e}")
+        else:
+            st.info("「この内容で高精密AI解析を実行する」ボタンを押すと、結果が表示されます。")
