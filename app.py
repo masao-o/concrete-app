@@ -60,7 +60,7 @@ div[data-testid="stMultiSelect"] span[data-baseweb="tag"] * {{
     font-weight: bold !important;
 }}
 
-/* 【最新徹底修正】チェックボックス選択時のオレンジ・赤色（警告色）を完全に消し去り、信頼の青に固定 */
+/* チェックボックス選択時のオレンジ・赤色（警告色）を完全に消し去り、信頼の青に固定 */
 div[data-testid="stCheckbox"] div[role="checkbox"] {{
     border-color: #475569 !important;
 }}
@@ -69,7 +69,6 @@ div[data-testid="stCheckbox"] div[role="checkbox"][aria-checked="true"] {{
     border-color: #38BDF8 !important;
     box-shadow: 0 0 10px rgba(56, 189, 248, 0.5) !important;
 }}
-/* チェックマーク（中の✔形状）の白色化を完全固定 */
 div[data-testid="stCheckbox"] div[role="checkbox"] svg {{
     stroke: #FFFFFF !important;
     fill: none !important;
@@ -77,9 +76,47 @@ div[data-testid="stCheckbox"] div[role="checkbox"] svg {{
 div[data-testid="stCheckbox"] div[role="checkbox"] span {{
     color: #FFFFFF !important;
 }}
-/* ホバー時のオレンジ発光を無効化 */
 div[data-testid="stCheckbox"] div[role="checkbox"]:hover {{
     border-color: #38BDF8 !important;
+}}
+
+/* 【最新重要修正】ボタン（st.button）選択時やホバー時の赤・オレンジの干渉枠を完全に排除 */
+div.stButton > button {{
+    background-color: #1E293B !important;
+    color: #FFFFFF !important;
+    border: 1px solid #475569 !important;
+    border-radius: 10px !important;
+    font-weight: bold !important;
+    transition: all 0.2s ease-in-out !important;
+}}
+/* ホバーしたとき（マウスを乗せたとき）は赤くならず、綺麗なネオンブルーの線にする */
+div.stButton > button:hover {{
+    border-color: #38BDF8 !important;
+    color: #38BDF8 !important;
+    background-color: #111827 !important;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.3) !important;
+}}
+/* クリックした瞬間、クリック中（フォーカス時）の赤枠も完全に上書き防御 */
+div.stButton > button:focus, div.stButton > button:active {{
+    border-color: #38BDF8 !important;
+    color: #38BDF8 !important;
+    background-color: #0F172A !important;
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.5) !important;
+}}
+
+/* メインの巨大「診断実行ボタン」だけは存在感を出すために青ベースのカスタムを維持（赤の干渉なし） */
+div.stButton > button[key="execute_analysis_btn"] {{
+    background-color: #0284C7 !important;
+    color: #FFFFFF !important;
+    border: 2px solid #38BDF8 !important;
+    border-radius: 12px !important;
+    padding: 14px 28px !important;
+    font-size: 18px !important;
+}}
+div.stButton > button[key="execute_analysis_btn"]:hover {{
+    background-color: #38BDF8 !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 0 25px #38BDF8 !important;
 }}
 
 /* iPhoneのホーム画面風「独立型・四角い立体アイコンボタン」スタイル */
@@ -172,7 +209,7 @@ def check_password():
         if os.path.exists("logo.png"): 
             st.image("logo.png", width=250)
         st.markdown("<h2 style='text-align: center; color: white;'>🔒 閉域環境・コンクリート劣化診断 AI Suite Pro</h2>", unsafe_allow_html=True)
-        st.text_input("アクセスパスワード（技術管理者専用）", type="password", on_change=password_entered, key="password")
+        st.text_input("アクセスパスワード（担当者専用）", type="password", on_change=password_entered, key="password")
         return False
     return True
 
@@ -338,7 +375,7 @@ if check_password():
             ])
             
         region_info = st.text_area("⑦ その他、現場特記・周辺状況（手動補足用）", placeholder="例: 近傍に大型車両の交通量が多く微振動あり、等")
-        st.success("✅ ステップ①環境条件設定完了：画面上部の『📸 ② 写真・変状チェック入力』アイコンボタンを押してください。")
+        st.success("✅ ステップ①環境条件設定完了：画面上部の『📸 ② 写真・変状チェック入力』アイコンボタンか下の『② 画面を開く』を押してください。")
 
     # ==========================================
     # STEP 2 SCREEN: 現場写真・劣化個別チェック入力
@@ -354,7 +391,7 @@ if check_password():
             inspector_name = st.text_input("項目C：調査担当者（コンクリート診断士名）", value="T&N技術管理者")
             
         st.markdown("---")
-        st.markdown("### 🔧 2. 技術者による構造・施工要因の補足チェック（※完全クリーンな青色反転仕様）")
+        st.markdown("### 🔧 2. 技術者による構造・施工要因の補足チェック（※完全青色反転・赤みゼロ仕様）")
         ch1, ch2, ch3 = st.columns(3)
         with ch1:
             cb_shear = st.checkbox("構造的要因・不同沈下・土圧・耐震性能上のせん断ひび割れ疑い")
@@ -431,7 +468,8 @@ if check_password():
                 })
                 st.markdown("---")
             
-            if st.button("🚀 所在地気象因数とJCI複合劣化マトリクス、全写真データを統合して高精密AI診断を実行"):
+            # 診断実行ボタン（専用の特殊キー指定でデザイン固定・赤みの完全排除）
+            if st.button("🚀 所在地気象因数とJCI複合劣化マトリクス、全写真データを統合して高精密AI診断を実行", key="execute_analysis_btn"):
                 st.session_state.analysis_completed = False
                 st.session_state.full_result_text = None
                 
@@ -482,7 +520,7 @@ if check_password():
 {photo_details_joined}
 
 【絶対厳守命令】
-1. 写真データの中にクラックスケールが無く、かつ上記の写真個別パラメータでも幅・長さが「0.0」となっている場合は、絶対に寸法を数値としてハルシネーション（捏造）しないでください。その場合は必ず文章の冒頭に「【寸法判定保留】写真から正確な縮尺基準が確認できず実測値も無いため、数値推測を保留します。正確な劣化度評価のため縮尺基準の提供を求めます」と記載し、ユーザーへ逆質問してください。入力がある場合はその確定数値を論拠にしてください。
+1. 写真データの中にクラックスケールが無く、かつ上記の写真個別パラメータでも幅・長さが「0.0」となっている場合は、絶対に寸法を数値としてハルシネーション（捏造）しないでください。その場合は必ず文章の冒頭で「【寸法判定保留】写真から正確な縮尺基準が確認できず実測値も無いため、数値推測を保留します。正確な劣化度評価のため縮尺基準の提供を求めます」と記載し、ユーザーへ逆質問してください。入力がある場合はその確定数値を論拠にしてください。
 2. 判定基準として、JCI複合劣化指針および各点検マニュアルに則り、ひび割れ幅、漏水、エフロ、浮き剥離、鉄筋露出の有無、および2因子以上の複合重畳性を総合評価し、以下の4区分から該当する【劣化度】を必ず選定・明記してください。
    ・劣化度Ⅰ（軽微・経過観察）: ひび割れ幅0.2mm未満、漏水・錆汁なし。単一の初期欠陥・乾燥収縮等。表面含浸等の予防保全。
    ・劣化度Ⅱ（中期・要補修）: ひび割れ幅0.2mm以上1.0mm未満、またはエフロ析出。あるいは軽微な2因子の複合初期症状。低圧エポキシ樹脂注入工法。
@@ -506,7 +544,7 @@ if check_password():
                                         final_w = 0.0
                                 st.session_state.final_width = final_w
                                 st.session_state.analysis_completed = True
-                                st.session_state.current_step = "step3" # タブ③へ自動移行
+                                st.session_state.current_step = "step3" # 自動でタブ③へジャンプ誘導
                                 st.rerun()
                                 break 
                                 
@@ -536,7 +574,7 @@ if check_password():
                 alert_desc = "✅ JCI・指針基準：安全性への直接的影響は軽微です。表面含浸工法による予防保全、または目視経過観察となります。"
             else:
                 color_code, status_title = "#3B82F6", "🔵 【寸法・複合劣化度判定保留：現地実測要請】"
-                alert_desc = "ℹ️ 写真から明確な縮尺基準が確認できないため判定を保留しています。現地実測値または縮尺基準を確認してください。"
+                alert_desc = "ℹ️ 写真および個別入力欄から明確な縮尺基準が確認できないため判定を保留しています。現地実測値または縮尺基準を確認してください。"
             
             st.markdown(f"<div class='status-card' style='border-left: 8px solid {color_code};'><h3 style='color: {color_code} !important; margin:0; font-size:22px;'>{status_title}</h3><p style='color: #F1F5F9 !important; font-size: 14px; margin: 8px 0 0 0; font-weight: bold;'>{alert_desc}</p></div>", unsafe_allow_html=True)
             st.markdown("<h4 style='color: white; margin-top:20px;'>📑 AI Suite Pro 高精密工学的統合解析レポート</h4>", unsafe_allow_html=True)
