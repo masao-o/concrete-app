@@ -20,28 +20,20 @@ if 'final_width' not in st.session_state:
     st.session_state.final_width = 0.0
 if 'analysis_completed' not in st.session_state:
     st.session_state.analysis_completed = False
+if 'current_step' not in st.session_state:
+    st.session_state.current_step = "step1" # 初期ステップ
 
-# 解析完了時に③番タブを点滅させるCSSアニメーションの動的生成
+# 解析完了時に③番ボタンをiPhone風に発光・パルス点滅させるアニメーション
 animation_css = ""
 if st.session_state.analysis_completed:
     animation_css = """
-    /* ③番目のタブ（インデックス2）をパルス点滅させる */
-    button[data-baseweb="tab"]:nth-child(3) {
-        animation: pulse_glow 1.5s infinite alternate !important;
-        border: 1px solid #38BDF8 !important;
-        border-radius: 8px !important;
-        background-color: rgba(56, 189, 248, 0.1) !important;
+    .tile-btn-3 {
+        animation: iphone_pulse 1.5s infinite alternate !important;
+        border: 2px solid #38BDF8 !important;
     }
-    @keyframes pulse_glow {
-        0% {
-            box-shadow: 0 0 5px rgba(56, 189, 248, 0.4);
-            color: #94A3B8 !important;
-        }
-        100% {
-            box-shadow: 0 0 25px #38BDF8, inset 0 0 10px #38BDF8;
-            color: #38BDF8 !important;
-            font-weight: 900 !important;
-        }
+    @keyframes iphone_pulse {
+        0% { box-shadow: 0 4px 15px rgba(56, 189, 248, 0.2); background: linear-gradient(135deg, #1E293B, #0F172A); }
+        100% { box-shadow: 0 0 30px #38BDF8, inset 0 0 15px #38BDF8; background: linear-gradient(135deg, #0284C7, #1E293B); }
     }
     """
 
@@ -62,29 +54,66 @@ h1, h2, h3, h4, h5, h6, p, span, label, .stMarkdown,
 input, textarea, select, div[data-baseweb="select"] * {{ color: #0F172A !important; font-weight: bold !important; }}
 input::placeholder, textarea::placeholder {{ color: #64748B !important; opacity: 1 !important; }}
 
-/* マルチセレクトの選択済みバッジ（タグ）内の文字を黒文字に強制上書き */
+/* 【バグ修正】マルチセレクトおよびチェックボックス選択時の「赤色化・オレンジ色化」を完全に根絶 */
 div[data-testid="stMultiSelect"] span[data-baseweb="tag"] * {{
     color: #0F172A !important;
     font-weight: bold !important;
 }}
 
-/* 【大改善】上部3ステップ・タブメニューの巨大化・アイコンデザイン化 */
-button[data-baseweb="tab"] {{
-    color: #94A3B8 !important; 
-    font-size: 22px !important; /* 16pxから22pxへ圧倒的拡大 */
-    font-weight: bold !important;
-    padding: 16px 28px !important;
-    transition: all 0.3s ease;
+/* チェックボックスの背景に青を指定し、不本意な赤（警告色）の干渉を上書き防御 */
+div[data-testid="stCheckbox"] div[role="checkbox"][aria-checked="true"] {{
+    background-color: #0284C7 !important;
+    border-color: #38BDF8 !important;
 }}
-button[data-baseweb="tab"][aria-selected="true"] {{
-    color: #38BDF8 !important; 
-    font-weight: 900 !important; 
-    border-bottom-color: #38BDF8 !important; 
-    border-bottom-width: 4px !important;
-    background-color: rgba(56, 189, 248, 0.05) !important;
+div[data-testid="stCheckbox"] div[role="checkbox"] svg {{
+    stroke: #FFFFFF !important;
 }}
 
-/* 動的誘導アニメーションCSSの注入 */
+/* 【新設】iPhoneのホーム画面風「独立型・四角い立体アイコンボタン」スタイル */
+.iphone-nav-container {{
+    display: flex;
+    gap: 20px;
+    margin-bottom: 30px;
+    margin-top: 15px;
+}}
+.iphone-tile-btn {{
+    flex: 1;
+    padding: 22px 15px;
+    background: linear-gradient(135deg, #1E293B, #111827);
+    border: 2px solid #334155;
+    border-radius: 20px; /* iPhone風のなめらかな角丸 */
+    text-align: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}}
+.iphone-tile-btn:hover {{
+    transform: translateY(-4px);
+    border-color: #475569;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}}
+.iphone-tile-btn.active {{
+    background: linear-gradient(135deg, #0284C7, #1E293B);
+    border-color: #38BDF8;
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}}
+.tile-icon {{
+    font-size: 32px;
+    margin-bottom: 8px;
+    display: block;
+}}
+.tile-title {{
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    color: #FFFFFF !important;
+    letter-spacing: 0.5px;
+}}
+.iphone-tile-btn.active .tile-title {{
+    color: #FFFFFF !important;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}}
+
+/* ③番ボタンの動的誘導パルスアニメーション適用 */
 {animation_css}
 
 /* ファイルアップローダー */
@@ -130,7 +159,7 @@ def check_password():
         if os.path.exists("logo.png"): 
             st.image("logo.png", width=250)
         st.markdown("<h2 style='text-align: center; color: white;'>🔒 閉域環境・コンクリート劣化診断 AI Suite Pro</h2>", unsafe_allow_html=True)
-        st.text_input("アクセスパスワード（担当者専用）", type="password", on_change=password_entered, key="password")
+        st.text_input("アクセスパスワード（技術管理者専用）", type="password", on_change=password_entered, key="password")
         return False
     return True
 
@@ -143,19 +172,55 @@ if check_password():
     api_key = st.secrets.get("GEMINI_API_KEY", "")
 
     st.markdown("<h1 style='color: white; margin-bottom: 0;'>🚗 AI Suite Pro</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #94A3B8; font-size: 16px;'>実務特化型コンクリート高精密診断ダッシュボード（JCI複合劣化・指針完全対応）</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94A3B8; font-size: 16px;'>実務特化型コンクリート高精密診断ダッシュボード（全指針・点検マニュアル準拠）</p>", unsafe_allow_html=True)
 
-    # 3ステップ・ダッシュボードメニュー（巨大文字化＆視覚的アイコン配置）
-    tab_home, tab_input, tab_report = st.tabs([
-        "🏠 ① 設置地域・環境判定", 
-        "📸 ② 写真・変状チェック入力", 
-        "📑 ③ 統合診断レポート・Excel"
-    ])
+    # --- 3. 【デザイン完全確定】iPhone風タイルメニューを描画＆クリック処理を配置 ---
+    # Streamlit標準のボタンをHTMLタイルの下に隠して連動させる手法
+    st.markdown("<p style='color: #38BDF8; font-size:14px; margin-top:15px; margin-bottom:-5px;'>▼ iPhoneスタイル・ナビゲーション（クリックして切り替え）</p>", unsafe_allow_html=True)
+    
+    col_nav1, col_nav2, col_nav3 = st.columns(3)
+    with col_nav1:
+        is_active1 = "active" if st.session_state.current_step == "step1" else ""
+        st.markdown(f"""
+        <div class="iphone-tile-btn {is_active1}">
+            <span class="tile-icon">🏠</span>
+            <span class="tile-title">① 設置地域・環境判定</span>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("① 画面を開く", key="btn_nav1", use_container_width=True):
+            st.session_state.current_step = "step1"
+            st.rerun()
+            
+    with col_nav2:
+        is_active2 = "active" if st.session_state.current_step == "step2" else ""
+        st.markdown(f"""
+        <div class="iphone-tile-btn {is_active2}">
+            <span class="tile-icon">📸</span>
+            <span class="tile-title">② 写真・変状チェック入力</span>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("② 画面を開く", key="btn_nav2", use_container_width=True):
+            st.session_state.current_step = "step2"
+            st.rerun()
+            
+    with col_nav3:
+        is_active3 = "active" if st.session_state.current_step == "step3" else ""
+        st.markdown(f"""
+        <div class="iphone-tile-btn {is_active3} tile-btn-3">
+            <span class="tile-icon">📑</span>
+            <span class="tile-title">③ 統合診断レポート・Excel</span>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("③ 画面を開く", key="btn_nav3", use_container_width=True):
+            st.session_state.current_step = "step3"
+            st.rerun()
+
+    st.markdown("---")
 
     # ==========================================
-    # TAB 1: ホーム・地域環境設定
+    # STEP 1 SCREEN: ホーム・地域環境設定
     # ==========================================
-    with tab_home:
+    if st.session_state.current_step == "step1":
         st.markdown("### 📍 1. 構造物所在地・JCI環境マッピング自動計算判定")
         st.markdown("<p style='color: #94A3B8;'>住所を入力すると、日本コンクリート工学会（JCI）報告書および気象統計データを基に、単一劣化のみならず『2因子・3因子の複合劣化危険度分布』を裏側で自動解析・抽出します。</p>", unsafe_allow_html=True)
         
@@ -217,9 +282,7 @@ if check_password():
             with c3:
                 st.markdown(f"<div class='dashboard-card'><h4>💎 ASR反応性骨材・損傷エリア</h4><p style='font-size:14px; color:#CBD5E1;'>{auto_asr_bone}</p></div>", unsafe_allow_html=True)
 
-        st.markdown("---")
         st.markdown("### 🛠️ 2. プロ診断士用 条件設定（重複排除・実務調書仕様）")
-        
         cc1, cc2, cc3 = st.columns(3)
         with cc1:
             struct_type = st.selectbox("① 構造物の種類（実績資料・詳細調査準拠）", [
@@ -249,7 +312,7 @@ if check_password():
             wet_status = st.multiselect("③ 内部湿潤・漏水状況（複数選択可）", [
                 "漏水なし（常時乾燥状態）", 
                 "微細な湿潤（変色・湿気あり）", 
-                "活動性の漏水あり（水みちの形成・進行性エフロ）", 
+                "活動性の漏水あり（水みみちの形成・進行性エフロ）", 
                 "高水圧環境（ダム・沈殿池等の浸透圧環境）"
             ], default=[])
             crack_type = st.selectbox("⑥ 目視・打診での支配的損傷（全資料対応）", [
@@ -263,12 +326,12 @@ if check_password():
             ])
             
         region_info = st.text_area("⑦ その他、現場特記・周辺状況（手動補足用）", placeholder="例: 近傍に大型車両の交通量が多く微振動あり、等")
-        st.success("✅ ステップ①環境条件設定完了：次の『📸 ② 写真・変状チェック入力』タブへ進んでください。")
+        st.success("✅ ステップ①環境条件設定完了：画面上部の『📸 ② 写真・変状チェック入力』アイコンボタンを押してください。")
 
     # ==========================================
-    # TAB 2: 現場写真・劣化個別チェック入力
+    # STEP 2 SCREEN: 現場写真・劣化個別チェック入力
     # ==========================================
-    with tab_input:
+    elif st.session_state.current_step == "step2":
         st.markdown("### 🏢 1. 提出用 業務基本情報の入力（詳細調査・操作ガイド仕様）")
         col_a, col_b, col_c = st.columns(3)
         with col_a:
@@ -279,7 +342,7 @@ if check_password():
             inspector_name = st.text_input("項目C：調査担当者（コンクリート診断士名）", value="T&N技術管理者")
             
         st.markdown("---")
-        st.markdown("### 🔧 2. 技術者による構造・施工要因の補足チェック")
+        st.markdown("### 🔧 2. 技術者による構造・施工要因の補足チェック（※選択時、綺麗な青色に反転します）")
         ch1, ch2, ch3 = st.columns(3)
         with ch1:
             cb_shear = st.checkbox("構造的要因・不同沈下・土圧・耐震性能上のせん断ひび割れ疑い")
@@ -300,8 +363,6 @@ if check_password():
 
         st.markdown("---")
         st.markdown("### 📸 3. 現場写真アップロード ＆ 【JCI複合劣化対応・高精密個別チェックモジュール】")
-        st.markdown("<p style='color: #38BDF8; font-weight: bold;'>💡 写真ごとに、ひび割れ・亀裂への詳細チェック、図面プロット、寸法、打診所見を完全に紐付けて入力できます。</p>", unsafe_allow_html=True)
-        
         uploaded_files = st.file_uploader("写真をアップロードしてください（最大6枚）", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
         
         images = []
@@ -358,9 +419,9 @@ if check_password():
                 })
                 st.markdown("---")
             
-            # ユーザーが解析ボタンを押した瞬間のロジック変更
+            # 診断ボタン押下時の処理
             if st.button("🚀 所在地気象因数とJCI複合劣化マトリクス、全写真データを統合して高精密AI診断を実行"):
-                st.session_state.analysis_completed = False # 一旦フラグをクリア
+                st.session_state.analysis_completed = False
                 st.session_state.full_result_text = None
                 
                 if not api_key:
@@ -372,6 +433,17 @@ if check_password():
                             try:
                                 genai.configure(api_key=api_key)
                                 model = genai.GenerativeModel('gemini-2.5-flash')
+                                
+                                # 永続化のための退避処理
+                                st.session_state.excel_records_cache = photo_excel_records
+                                st.session_state.struct_type_cache = struct_type
+                                st.session_state.weather_summary_cache = auto_weather_summary
+                                st.session_state.project_name_cache = project_name
+                                st.session_state.location_name_cache = location_name
+                                st.session_state.inspector_name_cache = inspector_name
+                                st.session_state.address_input_cache = address_input
+                                st.session_state.complex_degrade_cache = auto_complex_degrade
+                                st.session_state.images_cache = images
                                 
                                 env_text = "、".join(env_location) if env_location else "指定なし"
                                 wet_text = "、".join(wet_status) if wet_status else "指定なし"
@@ -400,7 +472,7 @@ if check_password():
 {photo_details_joined}
 
 【絶対厳守命令】
-1. 写真データの中にクラックスケールが無く、かつ上記の写真個別パラメータでも幅・長さが「0.0」となっている場合は、絶対に寸法を数値としてハルシネーション（捏造）しないでください。その場合は必ず文章の冒件で「【寸法判定保留】写真から正確な縮尺基準が確認できず実測値も無いため、数値推測を保留します。正確な劣化度評価のため縮尺基準の提供を求めます」と記載し、ユーザーへ逆質問してください。入力がある場合はその確定数値を論拠にしてください。
+1. 写真データの中にクラックスケールが無く、かつ上記の写真個別パラメータでも幅・長さが「0.0」となっている場合は、絶対に寸法を数値としてハルシネーション（捏造）しないでください。その場合は必ず文章の冒頭で「【寸法判定保留】写真から正確な縮尺基準が確認できず実測値も無いため、数値推測を保留します。正確な劣化度評価のため縮尺基準の提供を求めます」と記載し、ユーザーへ逆質問してください。入力がある場合はその確定数値を論拠にしてください。
 2. 判定基準として、JCI複合劣化指針および各点検マニュアルに則り、ひび割れ幅、漏水、エフロ、浮き剥離、鉄筋露出の有無、および2因子以上の複合重畳性を総合評価し、以下の4区分から該当する【劣化度】を必ず選定・明記してください。
    ・劣化度Ⅰ（軽微・経過観察）: ひび割れ幅0.2mm未満、漏水・錆汁なし。単一の初期欠陥・乾燥収縮等。表面含浸等の予防保全。
    ・劣化度Ⅱ（中期・要補修）: ひび割れ幅0.2mm以上1.0mm未満、またはエフロ析出。あるいは軽微な2因子の複合初期症状。低圧エポキシ樹脂注入工法。
@@ -423,8 +495,9 @@ if check_password():
                                     except Exception:
                                         final_w = 0.0
                                 st.session_state.final_width = final_w
-                                st.session_state.analysis_completed = True # 診断完了フラグをON
-                                st.rerun() # CSSのアニメーションを即時反映するために画面再描画
+                                st.session_state.analysis_completed = True # 診断フラグON
+                                st.session_state.current_step = "step3" # 自動でタブ③へジャンプ誘導
+                                st.rerun()
                                 break 
                                 
                             except Exception as e:
@@ -433,28 +506,30 @@ if check_password():
                                         time.sleep(2.5)
                                         continue
                                 raise e
+        else:
+            st.info("ℹ️ 写真がアップロードされていません。まずは写真をドロップしてください。")
 
     # ==========================================
-    # TAB 3: 統合診断レポート・Excel調書
+    # STEP 3 SCREEN: 統合診断レポート・Excel調書
     # ==========================================
-    with tab_report:
+    elif st.session_state.current_step == "step3":
         if st.session_state.full_result_text:
             fw = st.session_state.final_width
             if "劣化度Ⅲ" in st.session_state.full_result_text or "劣化度Ⅳ" in st.session_state.full_result_text or fw >= 1.0:
                 color_code, status_title = "#EF4444", f"🔴 【劣化度Ⅲ〜Ⅳ：複合劣化相乗進展・早期補修対応】判定最大幅: {fw} mm"
-                alert_desc = "⚠️ JCI・指針基準：2因子以上の侵食（塩害×凍害×ASRなど）が相乗的に重畳し、内部腐食・組織破壊が加速期・劣化期へ突入しています。早期の断面修復工法および構造安全性の確保、追跡詳細調査が必須です。"
+                alert_desc = "⚠️ JCI・指針基準：2因子以上の侵食が相乗的に重畳し劣化期へ突入しています。早期の断面修復工法および構造安全性の確保、追跡詳細調査が必須です。"
             elif "劣化度Ⅱ" in st.session_state.full_result_text or (0.2 <= fw < 1.0):
                 color_code, status_title = "#EAB308", f"🟡 【劣化度Ⅱ：中期劣化・機能保持補修】判定最大幅: {fw} mm"
-                alert_desc = "💡 JCI・指針基準：環境因子による有害な損傷、または複合劣化の初期兆候を検知しました。内部への侵食進展遮断のため、指針に則った「低圧エポキシ樹脂注入工法」等の選定を推奨します。"
+                alert_desc = "💡 JCI・指針基準：環境因子による有害な損傷、または複合劣化の初期兆候を検知しました。「低圧エポキシ樹脂注入工法」等の選定を推奨します。"
             elif fw > 0:
                 color_code, status_title = "#10B981", f"🟢 【劣化度Ⅰ：単一微細損傷・経過観察フェーズ】判定最大幅: {fw} mm"
-                alert_desc = "✅ JCI・指針基準：現時点で構造安全性への直接的影響は軽微、または経年相応の単一損傷です。表面含浸工法による吸水・劣化因子浸入抑制の予防保全、または目視経過観察となります。"
+                alert_desc = "✅ JCI・指針基準：安全性への直接的影響は軽微です。表面含浸工法による予防保全、または目視経過観察となります。"
             else:
                 color_code, status_title = "#3B82F6", "🔵 【寸法・複合劣化度判定保留：現地実測要請】"
-                alert_desc = "ℹ️ 写真および個別入力欄から正確な縮尺基準が確認できないため、AIはハルシネーションを回避し判定を保留しています。現地実測値または縮尺基準を確認してください。"
+                alert_desc = "ℹ️ 写真から明確な縮尺基準が確認できないため判定を保留しています。現地実測値または縮尺基準を確認してください。"
             
             st.markdown(f"<div class='status-card' style='border-left: 8px solid {color_code};'><h3 style='color: {color_code} !important; margin:0; font-size:22px;'>{status_title}</h3><p style='color: #F1F5F9 !important; font-size: 14px; margin: 8px 0 0 0; font-weight: bold;'>{alert_desc}</p></div>", unsafe_allow_html=True)
-            st.markdown("<h4 style='color: white; margin-top:20px;'>📑 AI Suite Pro 高精密工学的統合解析レポート（JCI複合劣化マトリクス連動）</h4>", unsafe_allow_html=True)
+            st.markdown("<h4 style='color: white; margin-top:20px;'>📑 AI Suite Pro 高精密工学的統合解析レポート</h4>", unsafe_allow_html=True)
             st.markdown(f"<div class='report-text-box'>{st.session_state.full_result_text}</div>", unsafe_allow_html=True)
 
             # --- Excel調書出力モジュール ---
@@ -479,39 +554,31 @@ if check_password():
                 ws.column_dimensions['C'].width = 2
                 ws.column_dimensions['D'].width = 72  
                 
-                p_name = project_name if ('project_name' in locals() and project_name) else "コンクリート構造物健全度調査業務"
-                l_name = location_name if ('location_name' in locals() and location_name) else "現場調査対象箇所"
-                if 'address_input' in locals() and address_input:
-                    l_name = f"{address_input} ({l_name})"
+                p_name_xl = st.session_state.project_name_cache if st.session_state.project_name_cache else "コンクリート構造物健全度調査業務"
+                l_name_xl = st.session_state.location_name_cache if st.session_state.location_name_cache else "現場調査対象箇所"
+                if st.session_state.address_input_cache:
+                    l_name_xl = f"{st.session_state.address_input_cache} ({l_name_xl})"
 
                 start_row = 1
-                for idx, img in enumerate(images):
-                    rec = photo_excel_records[idx]
+                for idx, img in enumerate(st.session_state.images_cache):
+                    rec = st.session_state.excel_records_cache[idx]
                     
                     ws.merge_cells(f"A{start_row}:D{start_row}")
-                    ws[f"A{start_row}"] = f"■ {p_name} 構造物調査状況写真台帳（損傷・健全度調書）"
+                    ws[f"A{start_row}"] = f"■ {p_name_xl} 構造物調査状況写真台帳"
                     ws[f"A{start_row}"].font = font_header
                     
                     ws.merge_cells(f"A{start_row+1}:D{start_row+1}")
-                    ws[f"A{start_row+1}"] = f"施設位置： {l_name}  |  調査技術者：{inspector_name if 'inspector_name' in locals() else 'T&N技術管理者'}"
+                    ws[f"A{start_row+1}"] = f"施設位置： {l_name_xl}  |  調査担当：{st.session_state.inspector_name_cache}"
                     ws[f"A{start_row+1}"].font = font_label
                     ws[f"A{start_row+1}"].alignment = Alignment(horizontal="right")
 
-                    info_labels = [
-                        "写真No. / 撮影項目", 
-                        "工種・部材・変状分類", 
-                        "位置・図面プロット部", 
-                        "手動入力・実測寸法", 
-                        "JCI複合劣化マトリクス特性", 
-                        "AI判定・工学的考察・記事"
-                    ]
-                    
+                    info_labels = ["写真No. / 撮影項目", "工種・部材・変状分類", "位置・図面プロット部", "手動入力・実測寸法", "JCI複合劣化マトリクス特性", "AI判定・工学的考察・記事"]
                     info_values = [
                         rec["no"], 
-                        f"{struct_type if 'struct_type' in locals() else 'コンクリート構造物'} ({rec['kind']})", 
+                        f"{st.session_state.struct_type_cache} ({rec['kind']})", 
                         rec["part"], 
                         rec["dim"],
-                        auto_complex_degrade if 'auto_complex_degrade' in locals() else '一般環境', 
+                        st.session_state.complex_degrade_cache, 
                         f"{rec['comment']}\n\n【全体複合劣化統括報告】\n{st.session_state.full_result_text if idx == 0 else 'No.1写真の全体統括レポートを参照'}"
                     ]
 
@@ -549,10 +616,10 @@ if check_password():
                 st.download_button(
                     label="📥 官庁・役所提出用 高精密Excel調書をダウンロード",
                     data=output.getvalue(),
-                    file_name=f"【確定複合劣化調書】{p_name}.xlsx",
+                    file_name=f"【確定複合劣化調書】{p_name_xl}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
             except Exception as excel_err:
                 st.error(f"Excel写真台帳の生成中にエラーが発生しました: {excel_err}")
         else:
-            st.info("💡 『📸 ② 写真・変状チェック入力』タブで写真を添付し、個別パラメータを設定して解析実行ボタンを押すと、JCI複合劣化指針・各マニュアル提出仕様の重厚な工学的レポートとExcel出力モジュールがここに自動展開されます。")
+            st.info("💡 『📸 ② 写真・変状チェック入力』画面でデータを入力し、「高精密AI診断を実行」ボタンを押してください。診断が完了すると、自動的にこの画面へ誘導されレポートとExcel出力モジュールが生成されます。")
