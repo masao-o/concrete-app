@@ -7,6 +7,7 @@ from openpyxl.drawing.image import Image as ExcelImage
 import io
 import os
 import re
+import time
 from datetime import datetime
 
 # --- 1. ページ設定とUIデザイン ---
@@ -85,18 +86,16 @@ if check_password():
     
     api_key = st.secrets.get("GEMINI_API_KEY", "")
     
-    # --- 3. サイドバー設定（新設：住所から自動環境解析モジュール） ---
+    # --- 3. サイドバー設定（住所から自動環境解析モジュール） ---
     st.sidebar.markdown("## 📍 調査対象の所在地（自動解析用）")
     address_input = st.sidebar.text_input("構造物の設置住所・路線名を入力", placeholder="例：山形県酒田市大浜 国道112号")
     
-    # 住所から裏側で環境因子をロジック判定するモジュール
     auto_freeze_info = "判定不能（住所未入力）"
     auto_salt_info = "判定不能（住所未入力）"
     auto_agent_info = "判定不能（住所未入力）"
     auto_weather_summary = "特記事項なし"
     
     if address_input:
-        # 凍害・凍結融解サイクルの自動判定ルール（日本の主要寒冷・豪雪地帯、高経年凍結地域）
         cold_regions = ["北海道", "青森", "岩手", "秋田", "山形", "宮城", "福島", "新潟", "富山", "石川", "福井", "長野", "岐阜", "群馬", "山梨"]
         is_cold = any(reg in address_input for reg in cold_regions)
         
@@ -107,7 +106,6 @@ if check_password():
             auto_freeze_info = "【一般環境】温暖地域、または冬季の凍結融解サイクルが年平均15回未満の低凍害リスクエリア。"
             auto_agent_info = "【散布確率：小】定期的な凍結防止剤の大量散布路線には該当しない可能性が高い。"
             
-        # 塩害・飛来塩分の自動ロジック（沿岸地名、港湾地名の検出）
         salt_keywords = ["浜", "海岸", "港", "湾", "岬", "磯", "シーサイド", "大浜", "臨海", "塩", "浦", "津"]
         is_coast = any(kw in address_input for kw in salt_keywords)
         
@@ -116,7 +114,6 @@ if check_password():
         else:
             auto_salt_info = "【一般地域】塩害警戒地域（沿岸近傍）の直接的な飛来塩分の影響は少ないエリア（内陸部）。"
             
-        # 摩耗・風化・気象サマリーの構築
         if is_cold and is_coast:
             auto_weather_summary = "日本海側あるいは過酷な沿岸寒冷地に位置。過去数十年の複合的な気象要因（乾湿の繰り返し、激しい寒暖差、塩風による化学的侵食、強風による微粒子の衝突に起因する物理的摩耗・風化）が重なる極めて厳しい環境。"
         elif is_cold:
@@ -196,20 +193,25 @@ if check_password():
                 st.error("APIキーが設定されていません。")
             else:
                 with st.spinner("🔍 熟練コンクリート診断士AI(Gemini 2.5)が、所在地環境データを裏側で読み解きながら解析中..."):
-                    try:
-                        genai.configure(api_key=api_key)
-                        model = genai.GenerativeModel('gemini-2.5-flash')
-                        
-                        env_text = "、".join(env_location) if env_location else "指定なし"
-                        wet_text = "、".join(wet_status) if wet_status else "指定なし"
-                        photo_comments_text = "\n".join(photo_comments)
-                        
-                        dim_info = "手動指定なし（写真内にスケールが無ければ測定不可として厳格に質問してください）"
-                        if manual_width > 0 or manual_length > 0:
-                            dim_info = f"【診断士実測確定値】ひび割れ幅: {manual_width} mm, 長さ: {manual_length} cm"
+                    
+                    # 【改良点】429クォータエラーが出た場合に、自動で裏でリトライするロジック
+                    full_result_text = None
+                    max_retries = 3
+                    
+                    for attempt in range(max_retries):
+                        try:
+                            genai.configure(api_key=api_key)
+                            model = genai.GenerativeModel('gemini-2.5-flash')
+                            
+                            env_text = "、".join(env_location) if env_location else "指定なし"
+                            wet_text = "、".join(wet_status) if wet_status else "指定なし"
+                            photo_comments_text = "\n".join(photo_comments)
+                            
+                            dim_info = "手動指定なし（写真内にスケールが無ければ測定不可として厳格に質問してください）"
+                            if manual_width > 0 or manual_length > 0:
+                                dim_info = f"【診断士実測確定値】ひび割れ幅: {manual_width} mm, 長さ: {manual_length} cm"
 
-                        # 住所自動解析データを組み込んだ、過去最高に極厚なプロンプト
-                        prompt = f"""
+                            prompt = f"""
 あなたは日本最高峰の「コンクリート診断士」です。国交省や大手建設コンサルタントに提出する公式な報告書を作成してください。
 テンプレート回答や定型句を完全に排除し、他者の著作権を一切侵害しない完全オーダーメイドの重厚な工学的推測文（各項目400文字以上）を論理的に出力してください。
 
@@ -242,119 +244,129 @@ if check_password():
 
 出力は、確認できた場合のみ「確定ひび割れ幅: 〇.〇 mm」を必ず冒頭の1行目に示し、その後【劣化原因の詳細（気象条件および自動算出した地域要因含む）】、【写真ごとの個別見解】、【対策案および詳細調査の推奨】を、役所に提出できるレベルの非常に濃い長文で出力してください。JSONは不要です。
 """
-                        
-                        request_contents = [prompt] + images
-                        response = model.generate_content(request_contents)
-                        full_result_text = response.text
-                        
-                        final_width = manual_width
-                        if final_width == 0:
-                            try:
-                                match = re.search(r"確定ひび割れ幅:\s*([0-9.]+)", full_result_text)
-                                if match:
-                                    final_width = float(match.group(1))
-                            except Exception:
-                                final_width = 0.0
+                            request_contents = [prompt] + images
+                            response = model.generate_content(request_contents)
+                            full_result_text = response.text
+                            break # 成功したらループを抜ける
+                            
+                        except Exception as e:
+                            # 429エラーの場合は2.5秒待って再試行
+                            if "429" in str(e) or "quota" in str(e).lower():
+                                if attempt < max_retries - 1:
+                                    time.sleep(2.5)
+                                    continue
+                            # それ以外のエラーはそのまま上に投げる
+                            raise e
+                    
+                    # 最終的な判定・表示処理
+                    if full_result_text:
+                        try:
+                            final_width = manual_width
+                            if final_width == 0:
+                                try:
+                                    match = re.search(r"確定ひび割れ幅:\s*([0-9.]+)", full_result_text)
+                                    if match:
+                                        final_width = float(match.group(1))
+                                except Exception:
+                                    final_width = 0.0
 
-                        if final_width >= 0.2:
-                            color_code = "#EF4444"
-                            status_title = f"🔴 【要精密補修】確定ひび割れ幅: {final_width} mm"
-                            alert_desc = "⚠️ 判定基準：0.2mm以上のひび割れのため、指針に基づく「注入・充填工法」の設計検討が必要です。"
-                        elif final_width > 0:
-                            color_code = "#EAB308"
-                            status_title = f"🟡 【経過観察】確定ひび割れ幅: {final_width} mm"
-                            alert_desc = "💡 判定基準：0.2mm未満のため、表面含浸工法による予防保全または経過観察に該当します。"
-                        else:
-                            color_code = "#3B82F6"
-                            status_title = "🔵 【寸法判定保留・逆質問あり】"
-                            alert_desc = "ℹ️ スケールが不明なため数値を推測せず保留しています。実測値または縮尺基準を確認してください。"
-                        
-                        st.markdown(f"<div class='status-card'><h3 style='color: {color_code} !important; margin:0; font-size:22px;'>{status_title}</h3><p style='color: #F1F5F9 !important; font-size: 14px; margin: 8px 0 0 0; font-weight: bold;'>{alert_desc}</p></div>", unsafe_allow_html=True)
-                        st.markdown("<h4 style='color: white; margin-top:20px;'>📑 AI Suite Pro 高精密統合解析レポート（気象データ連動）</h4>", unsafe_allow_html=True)
-                        
-                        st.markdown(f"<div class='report-text-box'>{full_result_text}</div>", unsafe_allow_html=True)
+                            if final_width >= 0.2:
+                                color_code = "#EF4444"
+                                status_title = f"🔴 【要精密補修】確定ひび割れ幅: {final_width} mm"
+                                alert_desc = "⚠️ 判定基準：0.2mm以上のひび割れのため、指針に基づく「注入・充填工法」の設計検討が必要です。"
+                            elif final_width > 0:
+                                color_code = "#EAB308"
+                                status_title = f"🟡 【経過観察】確定ひび割れ幅: {final_width} mm"
+                                alert_desc = "💡 判定基準：0.2mm未満のため、表面含浸工法による予防保全または経過観察に該当します。"
+                            else:
+                                color_code = "#3B82F6"
+                                status_title = "🔵 【寸法判定保留・逆質問あり】"
+                                alert_desc = "ℹ️ スケールが不明なため数値を推測せず保留しています。実測値または縮尺基準を確認してください。"
+                            
+                            st.markdown(f"<div class='status-card'><h3 style='color: {color_code} !important; margin:0; font-size:22px;'>{status_title}</h3><p style='color: #F1F5F9 !important; font-size: 14px; margin: 8px 0 0 0; font-weight: bold;'>{alert_desc}</p></div>", unsafe_allow_html=True)
+                            st.markdown("<h4 style='color: white; margin-top:20px;'>📑 AI Suite Pro 高精密統合解析レポート（気象データ連動）</h4>", unsafe_allow_html=True)
+                            st.markdown(f"<div class='report-text-box'>{full_result_text}</div>", unsafe_allow_html=True)
 
-                        # --- 6. Excel出力（文字切れ・バランスの完全修正版） ---
-                        wb = openpyxl.Workbook()
-                        ws = wb.active
-                        ws.title = "調査状況写真台帳"
-                        ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
-                        ws.page_setup.paperSize = ws.PAPERSIZE_A4
-                        ws.views.sheetView[0].showGridLines = False
+                            # --- 6. Excel出力 ---
+                            wb = openpyxl.Workbook()
+                            ws = wb.active
+                            ws.title = "調査状況写真台帳"
+                            ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+                            ws.page_setup.paperSize = ws.PAPERSIZE_A4
+                            ws.views.sheetView[0].showGridLines = False
 
-                        font_header = Font(name="MS ゴシック", size=14, bold=True)
-                        font_label = Font(name="MS ゴシック", size=11, bold=True)
-                        font_data = Font(name="MS ゴシック", size=11)
-                        
-                        thin_side = Side(border_style="thin", color="000000")
-                        border_cell = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
-                        fill_label = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+                            font_header = Font(name="MS ゴシック", size=14, bold=True)
+                            font_label = Font(name="MS ゴシック", size=11, bold=True)
+                            font_data = Font(name="MS ゴシック", size=11)
+                            
+                            thin_side = Side(border_style="thin", color="000000")
+                            border_cell = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
+                            fill_label = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
 
-                        ws.column_dimensions['A'].width = 18
-                        ws.column_dimensions['B'].width = 52  
-                        ws.column_dimensions['C'].width = 2
-                        ws.column_dimensions['D'].width = 68  
-                        
-                        p_name = project_name if project_name else "コンクリート構造物劣化状況調査業務"
-                        l_name = location_name if location_name else "現場調査測定箇所"
-                        if address_input:
-                            l_name = f"{address_input} ({l_name})"
+                            ws.column_dimensions['A'].width = 18
+                            ws.column_dimensions['B'].width = 52  
+                            ws.column_dimensions['C'].width = 2
+                            ws.column_dimensions['D'].width = 68  
+                            
+                            p_name = project_name if project_name else "コンクリート構造物劣化状況調査業務"
+                            l_name = location_name if location_name else "現場調査測定箇所"
+                            if address_input:
+                                l_name = f"{address_input} ({l_name})"
 
-                        start_row = 1
-                        for idx, img in enumerate(images):
-                            ws.merge_cells(f"A{start_row}:D{start_row}")
-                            ws[f"A{start_row}"] = f"■ {p_name} 状況写真台帳"
-                            ws[f"A{start_row}"].font = font_header
-                            ws.merge_cells(f"A{start_row+1}:D{start_row+1}")
-                            ws[f"A{start_row+1}"] = f"施設・位置： {l_name} (No.{idx+1})"
-                            ws[f"A{start_row+1}"].font = font_label
-                            ws[f"A{start_row+1}"].alignment = Alignment(horizontal="right")
+                            start_row = 1
+                            for idx, img in enumerate(images):
+                                ws.merge_cells(f"A{start_row}:D{start_row}")
+                                ws[f"A{start_row}"] = f"■ {p_name} 状況写真台帳"
+                                ws[f"A{start_row}"].font = font_header
+                                ws.merge_cells(f"A{start_row+1}:D{start_row+1}")
+                                ws[f"A{start_row+1}"] = f"施設・位置： {l_name} (No.{idx+1})"
+                                ws[f"A{start_row+1}"].font = font_label
+                                ws[f"A{start_row+1}"].alignment = Alignment(horizontal="right")
 
-                            info_labels = ["写真No.", "撮影箇所", "工種・項目", "位置・部材", "AI工学所見・記事"]
-                            article_text = full_result_text if idx == 0 else photo_comments[idx]
-                            info_values = [f"Photo No.{idx+1}", f"構造物近景劣化状況写真 ({idx+1})", "コンクリート劣化度目視調査", l_name, article_text]
+                                info_labels = ["写真No.", "撮影箇所", "工種・項目", "位置・部材", "AI工学所見・記事"]
+                                article_text = full_result_text if idx == 0 else photo_comments[idx]
+                                info_values = [f"Photo No.{idx+1}", f"構造物近景劣化状況写真 ({idx+1})", "コンクリート劣化度目視調査", l_name, article_text]
 
-                            for i, (label, value) in enumerate(zip(info_labels, info_values)):
-                                r = start_row + 3 + i
-                                ws[f"A{r}"] = label
-                                ws[f"B{r}"] = value
-                                ws[f"A{r}"].font = font_label
-                                ws[f"A{r}"].fill = fill_label
-                                ws[f"B{r}"].font = font_data
-                                
-                                ws[f"A{r}"].border = border_cell
-                                ws[f"B{r}"].border = border_cell
-                                ws[f"A{r}"].alignment = Alignment(horizontal="center", vertical="center")
-                                ws[f"B{r}"].alignment = Alignment(wrap_text=True, vertical="top")
-                                
-                                if label == "AI工学所見・記事":
-                                    text_len = len(str(value))
-                                    dynamic_height = max(180, min(450, int(text_len * 0.45)))
-                                    ws.row_dimensions[r].height = dynamic_height
-                                else:
-                                    ws.row_dimensions[r].height = 26
+                                for i, (label, value) in enumerate(zip(info_labels, info_values)):
+                                    r = start_row + 3 + i
+                                    ws[f"A{r}"] = label
+                                    ws[f"B{r}"] = value
+                                    ws[f"A{r}"].font = font_label
+                                    ws[f"A{r}"].fill = fill_label
+                                    ws[f"B{r}"].font = font_data
+                                    
+                                    ws[f"A{r}"].border = border_cell
+                                    ws[f"B{r}"].border = border_cell
+                                    ws[f"A{r}"].alignment = Alignment(horizontal="center", vertical="center")
+                                    ws[f"B{r}"].alignment = Alignment(wrap_text=True, vertical="top")
+                                    
+                                    if label == "AI工学所見・記事":
+                                        text_len = len(str(value))
+                                        dynamic_height = max(180, min(450, int(text_len * 0.45)))
+                                        ws.row_dimensions[r].height = dynamic_height
+                                    else:
+                                        ws.row_dimensions[r].height = 26
 
-                            img_buffer = io.BytesIO()
-                            img.save(img_buffer, format="PNG")
-                            img_buffer.seek(0)
-                            xl_img = ExcelImage(img_buffer)
-                            xl_img.width, xl_img.height = 450, 320
-                            ws.add_image(xl_img, f"D{start_row + 3}")
+                                img_buffer = io.BytesIO()
+                                img.save(img_buffer, format="PNG")
+                                img_buffer.seek(0)
+                                xl_img = ExcelImage(img_buffer)
+                                xl_img.width, xl_img.height = 450, 320
+                                ws.add_image(xl_img, f"D{start_row + 3}")
 
-                            start_row += 12
+                                start_row += 12
 
-                        output = io.BytesIO()
-                        wb.save(output)
-                        
-                        st.markdown("---")
-                        st.download_button(
-                            label="📥 官庁・役所・提出用 高精密Excel写真台帳をダウンロード",
-                            data=output.getvalue(),
-                            file_name=f"【確定写真台帳】{p_name}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        )
-                    except Exception as e:
-                        if "429" in str(e) or "quota" in str(e).lower():
-                            st.error("⚠️ Google AIの利用制限に達しました。1分ほど待ってから再度ボタンを押してください。")
-                        else:
-                            st.error(f"エラーが発生しました: {e}")
+                            output = io.BytesIO()
+                            wb.save(output)
+                            
+                            st.markdown("---")
+                            st.download_button(
+                                label="📥 官庁・役所・提出用 高精密Excel写真台帳をダウンロード",
+                                data=output.getvalue(),
+                                file_name=f"【確定写真台帳】{p_name}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            )
+                        except Exception as excel_err:
+                            st.error(f"Excelの生成中にエラーが発生しました: {excel_err}")
+                    else:
+                        st.error("⚠️ アクセスが非常に集中しているため、AIからの応答を一時的に受信できませんでした。2〜3分置いて再度お試しいただくか、Googleの有料プラン（秒間アクセス上限緩和）への移行をご検討ください。")
