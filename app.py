@@ -2,72 +2,43 @@ import streamlit as st
 import google.generativeai as genai
 from PIL import Image
 import openpyxl
-from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.drawing.image import Image as ExcelImage
 import io
 import os
+import re
 from datetime import datetime
 
-# 1. ページ設定
+# --- 1. ページ設定とUI ---
 st.set_page_config(page_title="T&N コンクリート劣化診断 AI Suite Pro", layout="wide")
-
-# 【デザイン完全確定】文字色の競合、アップローダーの白飛びをすべて排除！
 st.markdown("""
-    <style>
-    .main { background-color: #0F172A; color: #FFFFFF; }
-    .stApp { background-color: #0F172A; }
-    
-    /* 左側サイドバーの背景 */
-    section[data-testid="stSidebar"] {
-        background-color: #1E293B !important;
-        border-right: 1px solid #334155;
-    }
-    
-    /* テキスト・ラベルの純白化（視認性100点） */
-    h1, h2, h3, h4, h5, h6, p, span, label, .stMarkdown,
-    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span,
-    .stCheckbox label, div[data-testid="stMarkdownContainer"] p { 
-        color: #FFFFFF !important; 
-        font-family: 'Helvetica Neue', Arial, sans-serif;
-        font-weight: bold !important;
-    }
-    
-    /* 入力枠の中の文字（黒でハッキリ） */
-    input, textarea {
-        color: #0F172A !important; 
-        font-weight: bold !important;
-    }
-    input::placeholder, textarea::placeholder {
-        color: #64748B !important;
-        opacity: 1 !important;
-    }
-    
-    /* 写真アップロード枠の中の薄い文字を「濃いグレー」にして100%見えるように修正 */
-    div[data-testid="stFileUploader"] section {
-        background-color: #F8FAFC !important;
-        border: 2px dashed #94A3B8 !important;
-    }
-    div[data-testid="stFileUploader"] section div, 
-    div[data-testid="stFileUploader"] section p, 
-    div[data-testid="stFileUploader"] section span,
-    div[data-testid="stFileUploader"] section small {
-        color: #475569 !important;
-        font-weight: bold !important;
-    }
-    
-    .stExpander div, .stExpander p, .stExpander span {
-        color: #FFFFFF !important;
-    }
-    
-    .stButton>button {
-        background-color: #0284C7; color: #FFFFFF; border: 2px solid #38BDF8; border-radius: 12px;
-        padding: 14px 28px; font-weight: bold; width: 100%; font-size: 18px;
-    }
-    .stButton>button:hover { background-color: #38BDF8; box-shadow: 0 0 20px #38BDF8; }
-    .status-card { padding: 25px; background-color: #0F172A; border-radius: 16px; border-left: 8px solid #38BDF8; margin-bottom: 20px; border-top: 1px solid #334155; border-right: 1px solid #334155; border-bottom: 1px solid #334155; }
-    </style>
+<style>
+.main { background-color: #0F172A; color: #FFFFFF; }
+.stApp { background-color: #0F172A; }
+section[data-testid="stSidebar"] { background-color: #1E293B !important; border-right: 1px solid #334155; }
+h1, h2, h3, h4, h5, h6, p, span, label, .stMarkdown,
+[data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span,
+.stCheckbox label, div[data-testid="stMarkdownContainer"] p {
+    color: #FFFFFF !important; font-family: 'Helvetica Neue', Arial, sans-serif; font-weight: bold !important;
+}
+input, textarea { color: #0F172A !important; font-weight: bold !important; }
+input::placeholder, textarea::placeholder { color: #64748B !important; opacity: 1 !important; }
+div[data-testid="stFileUploader"] section { background-color: #F8FAFC !important; border: 2px dashed #94A3B8 !important; }
+div[data-testid="stFileUploader"] section div, div[data-testid="stFileUploader"] section p,
+div[data-testid="stFileUploader"] section span, div[data-testid="stFileUploader"] section small {
+    color: #475569 !important; font-weight: bold !important;
+}
+.stExpander div, .stExpander p, .stExpander span { color: #FFFFFF !important; }
+.stButton>button {
+    background-color: #0284C7; color: #FFFFFF; border: 2px solid #38BDF8; border-radius: 12px;
+    padding: 14px 28px; font-weight: bold; width: 100%; font-size: 18px;
+}
+.stButton>button:hover { background-color: #38BDF8; box-shadow: 0 0 20px #38BDF8; }
+.status-card { padding: 25px; background-color: #1E293B; border-radius: 16px; border-left: 8px solid #38BDF8; margin-bottom: 20px; border-top: 1px solid #334155; border-right: 1px solid #334155; border-bottom: 1px solid #334155; }
+</style>
 """, unsafe_allow_html=True)
 
+# --- 2. パスワード認証 ---
 if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
 
@@ -76,252 +47,215 @@ def check_password():
         if st.session_state["password"] == "tn0000":
             st.session_state["authenticated"] = True
             del st.session_state["password"]
-        else: st.sidebar.error("❌ パスワードが違います")
+        else:
+            st.sidebar.error("❌ パスワードが違います")
+            
     if not st.session_state["authenticated"]:
-        if os.path.exists("logo.png"): st.image("logo.png", width=250)
-        st.markdown("<h2 style='text-align: center; color: white;'>🔒 コンクリート劣化診断 AI Suite Pro</h2>", unsafe_allow_html=True)
-        st.text_input("パスワードを入力してください", type="password", on_change=password_entered, key="password")
+        if os.path.exists("logo.png"): 
+            st.image("logo.png", width=250)
+        st.markdown("<h2 style='text-align: center; color: white;'>🔒 閉域環境・コンクリート劣化診断 AI Suite Pro</h2>", unsafe_allow_html=True)
+        st.text_input("アクセスパスワード（担当者専用）", type="password", on_change=password_entered, key="password")
         return False
     return True
 
 if check_password():
-    if os.path.exists("logo.png"): st.image("logo.png", width=220)
+    if os.path.exists("logo.png"): 
+        st.image("logo.png", width=220)
+        
     st.markdown("<h1 style='color: white;'>🚗 AI Suite Pro - 実務特化型コンクリート高精密診断システム</h1>", unsafe_allow_html=True)
     st.markdown("---")
-
+    
     api_key = st.secrets.get("GEMINI_API_KEY", "")
-
-    st.sidebar.markdown("## 🛠️ プロ診断士用 環境条件設定")
-    struct_type = st.sidebar.selectbox("① 構造物の種類", ["（未選択・写真から自動判定）", "橋梁（上部工/下部工）", "ボックスカルバート", "擁壁（重力式/もたれ式）", "トンネル覆工", "港湾・河川構造物", "建築物基礎・柱・壁"])
-    env_location = st.sidebar.selectbox("② 設置環境・大分類", ["（未選択・写真から自動判定）", "一般地域（屋外・雨掛かり）", "一般地域（日陰・軒下）", "塩害警戒地域（海岸付近）", "寒冷地・凍枯地域", "屋内（常時乾燥）"])
-    wet_status = st.sidebar.selectbox("③ コンクリートの湿潤状態", ["（未選択・写真から自動判定）", "常時乾燥状態", "乾湿の繰り返し（ひび割れが進展しやすい）", "常時湿潤状態（漏水・滞水あり）"])
+    
+    # --- 3. サイドバー設定 ---
+    st.sidebar.markdown("## 🛠️ プロ診断士用 条件設定")
+    struct_type = st.sidebar.selectbox("① 構造物の種類", ["（未選択・写真から自動判定）", "橋梁（上部工/下部工）", "ボックスカルバート", "擁壁", "トンネル覆工", "港湾・河川構造物", "建築物基礎・柱・壁"])
+    env_location = st.sidebar.multiselect("② 設置環境・大分類（複数選択可）", ["一般地域（屋外・雨掛かり）", "一般地域（日陰・軒下）", "塩害警戒地域（海岸付近）", "寒冷地・凍枯地域", "屋内（常時乾燥）"], default=[])
+    wet_status = st.sidebar.multiselect("③ 湿潤状態（複数選択可）", ["常時乾燥状態", "乾湿の繰り返し（ひび割れ進展）", "常時湿潤状態（漏水・滞水）"], default=[])
     cement_type = st.sidebar.selectbox("④ 使用セメントの種類", ["（未選択）", "普通ポルトランドセメント", "高炉セメント（B種など）", "早強ポルトランドセメント", "不明"])
     elapsed_years = st.sidebar.selectbox("⑤ 供用年数（経過年数）", ["（未選択）", "5年未満（初期欠陥の可能性）", "5年以上〜20年未満", "20年以上〜50年未満", "50年以上（高経年化）"])
     crack_type = st.sidebar.selectbox("⑥ 目視での主たる劣化症状", ["（未選択・写真から自動判定）", "ひび割れ（単一・規則性）", "亀甲状のひび割れ（ASRなどの疑い）", "エフロレッセンス（白華）の析出伴う", "コンクリートの剥離・鉄筋露出（爆裂現象）", "漏水・遊離石灰を伴う錆汁"])
+    
+    st.sidebar.markdown("### 🌦️ 気象・地域特有の環境入力")
+    region_info = st.sidebar.text_area("⑦ 地域・気象特記事項", placeholder="例: 冬季の凍結融解サイクルが多い地域、海岸から近く飛来塩分が多い等")
 
-    with st.expander("📘 本アプリの取扱説明書（マニュアル）を開く", expanded=False):
-        st.markdown("### 【アプリの使い方】\n1. 写真をアップロードし「高精密AI解析を実行する」ボタンを押すだけでAI診断が始まります。")
-
-    col1, col2 = st.columns([1, 1])
-
+    # --- 4. メイン画面 ---
+    col1, col2 = st.columns(2)
     with col1:
-        st.markdown("### 🏢 提出用 業務情報入力（空欄でもOK）")
-        project_name = st.text_input("項目A：物件名（工事名・業務名）", placeholder="（例：〇〇高架橋修繕工事に伴う劣化調査）")
-        location_name = st.text_input("項目B：調査位置・測定箇所", placeholder="（例：A1橋台 正面左側中央部）")
+        st.markdown("### 🏢 業務情報と補足")
+        project_name = st.text_input("項目A：物件名（工事名・業務名）", placeholder="（例：塩竈清掃工場 躯体調査）")
+        location_name = st.text_input("項目B：調査位置・測定箇所", placeholder="（例：沈殿池 南面壁）")
         inspector_name = st.text_input("項目C：調査担当者（コンクリート診断士名）", value="診断太郎", placeholder="（例：診断太郎）")
         
-        st.markdown("### 🔧 人間による補足情報入力（重複なし）")
-        cb_salt = st.checkbox("海岸線から2km以内（塩害リスク）")
-        cb_freeze = st.checkbox("寒冷地・凍結防止剤の散布地域（凍害リスク）")
-        cb_wet = st.checkbox("常時湿潤・漏水・滞水環境（アルカリ骨材反応・溶出リスク）")
-        cb_traffic = st.checkbox("交通量が極めて多い（排気ガスによる中性化加速）")
+        st.markdown("### 🔧 人間による補足情報入力")
+        cb_salt = st.checkbox("海岸線から2km以内（塩害）")
+        cb_freeze = st.checkbox("寒冷地・凍結防止剤散布（凍害）")
+        cb_wet = st.checkbox("常時湿潤・漏水（ASR・溶出）")
+        cb_shear = st.checkbox("X状のせん断ひび割れ疑い")
         cb_janka = st.checkbox("ジャンカ・初期ひび割れの目視確認あり")
         cb_joint = st.checkbox("施工目地・コールドジョイント部")
         cb_cover = st.checkbox("設計かぶり厚の不足が疑われる・または既知")
         
         selected_factors = []
         if cb_salt: selected_factors.append("海岸線から2km以内（塩害リスク）")
-        if cb_freeze: selected_factors.append("寒冷地・凍結防止剤の散布地域（凍害リスク）")
-        if cb_wet: selected_factors.append("常時湿潤・漏水・滞水環境（アルカリ骨材反応・溶出リスク）")
-        if cb_traffic: selected_factors.append("交通量が極めて多い（排気ガスによる中性化加速）")
+        if cb_freeze: selected_factors.append("寒冷地・凍害リスク")
+        if cb_wet: selected_factors.append("常時湿潤・漏水・ASRリスク")
+        if cb_shear: selected_factors.append("地震等によるせん断応力の疑い（X状クラック）")
         if cb_janka: selected_factors.append("ジャンカ・初期ひび割れの目視確認あり")
         if cb_joint: selected_factors.append("施工目地・コールドジョイント部")
         if cb_cover: selected_factors.append("設計かぶり厚の不足が疑われる・または既知")
         human_factors_text = "、".join(selected_factors) if selected_factors else "特になし"
 
-        st.markdown("---")
-        uploaded_file = st.file_uploader("ここにコンクリート構造物の写真をアップロードしてください", type=["jpg", "jpeg", "png"])
-        if uploaded_file is not None:
-            image = Image.open(uploaded_file)
-            st.image(image, caption="診断対象のコンクリート写真", use_container_width=True)
-            execute_analysis = st.button("🚀 この内容で高精密AI解析を実行する")
+        st.markdown("### 📏 【重要】寸法の手動上書き指定")
+        manual_width = st.number_input("実測ひび割れ幅 (mm)", min_value=0.0, step=0.05, value=0.0)
+        manual_length = st.number_input("実測ひび割れ長さ (cm)", min_value=0.0, step=1.0, value=0.0)
 
+        st.markdown("---")
+        st.markdown("### 📸 現場写真アップロード（最大6枚）")
+        uploaded_files = st.file_uploader("写真をアップロードしてください", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+        
+        images = []
+        photo_comments = []
+        
+        if uploaded_files:
+            if len(uploaded_files) > 6:
+                st.warning("⚠️ 最初の6枚のみを処理します。")
+                uploaded_files = uploaded_files[:6]
+                
+            for idx, file in enumerate(uploaded_files):
+                img = Image.open(file)
+                images.append(img)
+                st.image(img, caption=f"Photo No.{idx+1}", width=250)
+                comment = st.text_input(f"Photo No.{idx+1} の補足コメント", key=f"comment_{idx}")
+                photo_comments.append(f"【Photo No.{idx+1}】: {comment if comment else '特記事項なし'}")
+                
+            execute_analysis = st.button("🚀 環境情報・各写真データを統合して高精密AI解析を実行")
+
+    # --- 5. AI解析処理 ---
     with col2:
         st.markdown("### 📊 高精密診断レポート")
-        if uploaded_file is not None and 'execute_analysis' in locals() and execute_analysis:
+        if uploaded_files and 'execute_analysis' in locals() and execute_analysis:
             if not api_key:
-                st.error("APIキーが保存されていません。")
+                st.error("APIキーが設定されていません。")
             else:
-                with st.spinner("🔍 プロのコンクリート診断士AI(Gemini 2.5)が精密解析中..."):
+                with st.spinner("🔍 熟練コンクリート診断士AI(Gemini 2.5)が解析中..."):
                     try:
                         genai.configure(api_key=api_key)
                         model = genai.GenerativeModel('gemini-2.5-flash')
                         
-                        p_name = project_name if project_name else "記載なし（現場写真より診断）"
-                        l_name = location_name if location_name else "記載なし"
-                        i_name = inspector_name if inspector_name else "記載なし"
+                        env_text = "、".join(env_location) if env_location else "指定なし"
+                        wet_text = "、".join(wet_status) if wet_status else "指定なし"
+                        photo_comments_text = "\n".join(photo_comments)
                         
-                        prompt = f"""
-                        あなたは最高峰の「コンクリート診断士」です。国交省や大手コンサルに提出する公式な報告書を作成してください。
-                        写真を詳細に調査し、環境（{env_location}）、湿潤状態（{wet_status}）、人為的補足（{human_factors_text}）を踏まえて、以下の2点をそれぞれ専門用語を交えた【300〜400文字以上の重厚なプロの意見】として詳しく日本語で述べてください。
+                        dim_info = "手動指定なし（スケールが無ければ測定不可として逆質問してください）"
+                        if manual_width > 0 or manual_length > 0:
+                            dim_info = f"ひび割れ幅: {manual_width} mm, 長さ: {manual_length} cm"
+
+                        prompt = f"コンクリート診断士として報告書を作ってください。構造物:{struct_type}, 環境:{env_text}, 湿潤:{wet_text}, セメント:{cement_type}, 年数:{elapsed_years}, 症状:{crack_type}, 地域:{region_info}, 補足:{human_factors_text}, 寸法:{dim_info}, 写真コメント:{photo_comments_text}。捏造は禁止しスケールがなければ逆質問してください。0.2mm未満は経過観察、以上は注入、1mm以上は充填工法。最初に「確定ひび割れ幅: 〇.〇 mm」と出力し、その後詳細を述べてください。"
                         
-                        1. 【劣化原因に関する深い工学的推測】: 中性化、塩害、ASR、乾燥収縮、不同沈下などから、ひび割れの進展方向、エフロ、漏水、錆汁の有無を写真から読み解き、支配的な劣化メカニズムを不動態被膜や遊離石灰、膨張圧などの用語を用いて詳細に解説してください。
-                        2. 【推奨される具体的な対策案・補修工法】: 土木学会等の指針に則り、エポキシ樹脂低圧注入工法、ポリマーセメントモルタル充填工法、表面含浸工法など具体的な工法名とその選定理由、さらにコア採取による追跡調査の必要性を明記してください。
-                        
-                        出力は必ず、最初に「推定ひび割れ幅: 0.18 mm / 推定ひび割れ長さ: 25.0 cm」のように実務上想定される、0.01mm〜0.5mmの間の現実的な幅と長さを推測して少数点で書いてください。
-                        その後に【劣化原因の詳細】、【対策案の詳細】をそれぞれ独立した長文で出力してください。JSONなどの特殊な形式は使わないでください。
-                        """
-                        
-                        response = model.generate_content([prompt, image])
+                        request_contents = [prompt] + images
+                        response = model.generate_content(request_contents)
                         full_result_text = response.text
                         
-                        width_val = 0.18
-                        length_val = 25.0
-                        try:
-                            if "幅:" in full_result_text:
-                                part = full_result_text.split("幅:")[1].split("mm")[0].strip()
-                                width_val = float(part)
-                            if "長さ:" in full_result_text:
-                                part2 = full_result_text.split("長さ:")[1].split("cm")[0].strip()
-                                length_val = float(part2)
-                        except:
-                            pass
+                        final_width = manual_width
+                        if final_width == 0:
+                            try:
+                                match = re.search(r"確定ひび割れ幅:\s*([0-9.]+)", full_result_text)
+                                if match:
+                                    final_width = float(match.group(1))
+                            except Exception:
+                                final_width = 0.0
 
-                        # 太田さんご指定の自動カラー判定
-                        if width_val >= 0.2:
+                        if final_width >= 0.2:
                             color_code = "#EF4444"
-                            status_title = f"🔴 【要精密確認】ひび割れ幅: {width_val} mm"
-                            alert_desc = "⚠️ 判定基準：0.2mm以上のひび割れのため【赤色：要精密補修】となります"
-                        else:
+                            status_title = f"🔴 【要精密補修】確定ひび割れ幅: {final_width} mm"
+                            alert_desc = "⚠️ 判定基準：0.2mm以上のひび割れのため「注入工法」等の検討が必要です。"
+                        elif final_width > 0:
                             color_code = "#EAB308"
-                            status_title = f"🟡 【経過観察】ひび割れ幅: {width_val} mm"
-                            alert_desc = "💡 判定基準：0.2mm以下のひび割れのため【黄色：経過観察】となります"
-
-                        # 画面表示
+                            status_title = f"🟡 【経過観察】確定ひび割れ幅: {final_width} mm"
+                            alert_desc = "💡 判定基準：0.2mm未満のため、経過観察または表面含浸に該当します。"
+                        else:
+                            color_code = "#3B82F6"
+                            status_title = "🔵 【寸法判定保留・逆質問あり】"
+                            alert_desc = "ℹ️ スケールが不明なため、AIは数値を推測せず保留しています。実測値を確認してください。"
+                        
                         st.markdown(f"<div class='status-card'><h3 style='color: {color_code} !important; margin:0; font-size:22px;'>{status_title}</h3><p style='color: #F1F5F9 !important; font-size: 14px; margin: 8px 0 0 0; font-weight: bold;'>{alert_desc}</p></div>", unsafe_allow_html=True)
-                        st.markdown(f"📐 **それぞれのひび割れ想定長さ:** <span style='font-size:24px; font-weight:bold; color:#38BDF8;'>{length_val} cm</span>", unsafe_allow_html=True)
-                        st.markdown("<h4 style='color: white; margin-top:20px;'>📑 コンクリート診断士AIによる調査報告</h4>", unsafe_allow_html=True)
+                        st.markdown("<h4 style='color: white; margin-top:20px;'>📑 AI Suite Pro 統合解析レポート</h4>", unsafe_allow_html=True)
                         st.info(full_result_text)
 
-                        # Excelの作成
+                        # --- 6. Excel出力 ---
                         wb = openpyxl.Workbook()
                         ws = wb.active
-                        ws.title = "コンクリート構造物劣化診断書"
-                        
-                        ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
+                        ws.title = "調査状況写真台帳"
+                        ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
                         ws.page_setup.paperSize = ws.PAPERSIZE_A4
-                        ws.sheet_properties.pageSetUpPr.fitToPage = True
-                        ws.page_setup.fitToWidth = 1  
-                        ws.page_setup.fitToHeight = 0 
-                        ws.views.sheetView[0].showGridLines = True
+                        ws.views.sheetView[0].showGridLines = False
 
-                        font_title = Font(name="MS ゴシック", size=16, bold=True, color="FFFFFF")
-                        font_header = Font(name="MS ゴシック", size=11, bold=True, color="FFFFFF")
-                        font_label = Font(name="MS ゴシック", size=10, bold=True, color="1E3A8A")
-                        font_data = Font(name="MS ゴシック", size=10)
+                        font_header = Font(name="MS ゴシック", size=14, bold=True)
+                        font_label = Font(name="MS ゴシック", size=11, bold=True)
+                        font_data = Font(name="MS ゴシック", size=11)
                         
-                        fill_title = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")
-                        fill_header = PatternFill(start_color="334155", end_color="334155", fill_type="solid")
-                        fill_label = PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid")
+                        thin_side = Side(border_style="thin", color="000000")
+                        border_cell = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
+                        fill_label = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+
+                        ws.column_dimensions['A'].width = 15
+                        ws.column_dimensions['B'].width = 45
+                        ws.column_dimensions['C'].width = 2
+                        ws.column_dimensions['D'].width = 60
                         
-                        thin_border_side = Side(border_style="thin", color="CBD5E1")
-                        border_cell = Border(left=thin_border_side, right=thin_border_side, top=thin_border_side, bottom=thin_border_side)
+                        p_name = project_name if project_name else "コンクリート構造物調査"
+                        l_name = location_name if location_name else "現場写真"
 
-                        ws.column_dimensions['A'].width = 25
-                        ws.column_dimensions['B'].width = 15
-                        ws.column_dimensions['C'].width = 15
-                        ws.column_dimensions['D'].width = 15
-                        ws.column_dimensions['E'].width = 15
-                        ws.column_dimensions['F'].width = 15
-                        ws.column_dimensions['G'].width = 20
+                        start_row = 1
+                        for idx, img in enumerate(images):
+                            ws.merge_cells(f"A{start_row}:D{start_row}")
+                            ws[f"A{start_row}"] = f"■ {p_name} 状況写真"
+                            ws[f"A{start_row}"].font = font_header
+                            ws.merge_cells(f"A{start_row+1}:D{start_row+1}")
+                            ws[f"A{start_row+1}"] = f"位置： {l_name}"
+                            ws[f"A{start_row+1}"].font = font_label
+                            ws[f"A{start_row+1}"].alignment = Alignment(horizontal="right")
 
-                        ws.merge_cells("A1:G1")
-                        ws["A1"] = "コンクリート構造物 劣化診断報告書（実務提出用調書）"
-                        ws["A1"].font = font_title
-                        ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
-                        ws["A1"].fill = fill_title
-                        ws.row_dimensions[1].height = 40
+                            info_labels = ["写真No.", "撮影箇所", "工種", "位置", "AI判定・コメント"]
+                            article_text = full_result_text if idx == 0 else photo_comments[idx]
+                            info_values = [f"No.{idx+1}", f"現場写真 {idx+1}", "劣化調査", l_name, article_text]
 
-                        info_rows = [
-                            ("物件名（工事名）", p_name, "■ 構造物種別", struct_type),
-                            ("調査対象・位置", l_name, "■ 設置環境", env_location),
-                            ("調査技術者（診断士）", i_name, "■ 乾湿状態", wet_status),
-                            ("調査実施日", datetime.now().strftime("%Y年%m月%d日"), "■ 現場補足要因", human_factors_text)
-                        ]
-                        
-                        for i, (l1, v1, l2, v2) in enumerate(info_rows, start=3):
-                            ws.cell(row=i, column=1, value=l1).font = font_label
-                            ws.cell(row=i, column=1).fill = fill_label
-                            ws.merge_cells(start_row=i, start_column=2, end_row=i, end_column=4)
-                            ws.cell(row=i, column=2, value=v1).font = font_data
-                            ws.cell(row=i, column=2).alignment = Alignment(wrap_text=True, vertical="center")
-                            
-                            ws.cell(row=i, column=5, value=l2).font = font_label
-                            ws.cell(row=i, column=5).fill = fill_label
-                            ws.merge_cells(start_row=i, start_column=6, end_row=i, end_column=7)
-                            ws.cell(row=i, column=6, value=v2).font = font_data
-                            ws.cell(row=i, column=6).alignment = Alignment(wrap_text=True, vertical="center")
-                            ws.row_dimensions[i].height = 25
+                            for i, (label, value) in enumerate(zip(info_labels, info_values)):
+                                r = start_row + 3 + i
+                                ws[f"A{r}"] = label
+                                ws[f"B{r}"] = value
+                                ws[f"A{r}"].font = font_label
+                                ws[f"A{r}"].fill = fill_label
+                                ws[f"B{r}"].font = font_data
+                                ws[f"A{r}"].border = border_cell
+                                ws[f"B{r}"].border = border_cell
+                                ws[f"A{r}"].alignment = Alignment(horizontal="center", vertical="center")
+                                ws[f"B{r}"].alignment = Alignment(wrap_text=True, vertical="top")
+                                
+                                if label == "AI判定・コメント":
+                                    ws.row_dimensions[r].height = 150
+                                else:
+                                    ws.row_dimensions[r].height = 24
 
-                        ws.merge_cells("A8:G8")
-                        ws["A8"] = "■ AI高精密解析・工学的診断判定データ"
-                        ws["A8"].font = Font(name="MS ゴシック", size=11, bold=True, color="1E3A8A")
-                        ws.row_dimensions[8].height = 25
+                            img_buffer = io.BytesIO()
+                            img.save(img_buffer, format="PNG")
+                            img_buffer.seek(0)
+                            xl_img = ExcelImage(img_buffer)
+                            xl_img.width, xl_img.height = 420, 310
+                            ws.add_image(xl_img, f"D{start_row + 3}")
 
-                        ws["A9"] = "評価項目"
-                        ws.merge_cells("B9:G9")
-                        ws["B9"] = "コンクリート診断士AIによる抽出数値、および技術的所見レポート"
-                        ws["A9"].font = font_header
-                        ws["A9"].fill = fill_header
-                        ws["B9"].font = font_header
-                        ws["B9"].fill = fill_header
-                        ws["A9"].alignment = Alignment(horizontal="center", vertical="center")
-                        ws["B9"].alignment = Alignment(horizontal="center", vertical="center")
-                        ws.row_dimensions[9].height = 25
+                            start_row += 12
 
-                        ws["A10"] = "想定されるひび割れ幅"
-                        ws.merge_cells("B10:G10")
-                        ws["B10"] = f"{width_val} mm （{'赤色警告・要精密補修' if width_val>=0.2 else '黄色警告・経過観察' }）"
-                        ws.row_dimensions[10].height = 24
-
-                        ws["A11"] = "想定されるひび割れ長さ"
-                        ws.merge_cells("B11:G11")
-                        ws["B11"] = f"{length_val} cm"
-                        ws.row_dimensions[11].height = 24
-
-                        ws["A12"] = "AI詳細調査報告意見書\n(劣化原因・対策提案長文)"
-                        ws.merge_cells("B12:G12")
-                        ws["B12"] = full_result_text
-                        ws["B12"].alignment = Alignment(wrap_text=True, vertical="top")
-                        
-                        text_length = len(full_result_text)
-                        calculated_height = max(390, min(590, int(text_length * 0.46)))
-                        ws.row_dimensions[12].height = calculated_height
-
-                        for r in range(10, 13):
-                            ws.cell(row=r, column=1).font = font_label
-                            ws.cell(row=r, column=1).fill = fill_label
-                            ws.cell(row=r, column=2).font = font_data
-
-                        ws.merge_cells("A14:G14")
-                        ws["A14"] = "■ 診断対象構造物・現場調査写真"
-                        ws["A14"].font = Font(name="MS ゴシック", size=11, bold=True, color="1E3A8A")
-                        ws.row_dimensions[14].height = 25
-
-                        for row in ws.iter_rows(min_row=1, max_row=14, min_col=1, max_col=7):
-                            for cell in row: cell.border = border_cell
-
-                        # 【選択肢A】オリジナルの最高に綺麗な現場写真をそのままExcelへバシッと配置
-                        img_buffer_xl = io.BytesIO()
-                        image.save(img_buffer_xl, format="PNG")
-                        img_buffer_xl.seek(0)
-                        xl_img = ExcelImage(img_buffer_xl)
-                        xl_img.width = 520
-                        xl_img.height = 370
-                        
-                        ws.add_image(xl_img, "B16")
-                        ws.row_dimensions[16].height = 390
-                        
                         output = io.BytesIO()
                         wb.save(output)
+                        
                         st.markdown("---")
                         st.download_button(
-                            label="📥 官庁・役所・提出用 Excel報告書をダウンロード", 
-                            data=output.getvalue(), 
-                            file_name=f"【確定劣化診断書】{project_name if project_name else 'コンクリート構造物'}.xlsx", 
+                            label="📥 Excel写真台帳をダウンロード",
+                            data=output.getvalue(),
+                            file_name=f"【写真台帳】{p_name}.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
                     except Exception as e:
-                        st.error(f"解析中にエラーが発生しました: {e}")
-        else:
-            st.info("「この内容で高精密AI解析を実行する」ボタンを押すと、役所に提出可能なプロレベルの長文診断結果が表示されます。")
+                        st.error(f"エラーが発生しました: {e}")
