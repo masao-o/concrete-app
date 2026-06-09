@@ -57,7 +57,7 @@ if check_password():
     st.markdown("<h1 style='color: white;'>🚗 AI Suite Pro - 実務特化型コンクリート高精密診断システム</h1>", unsafe_allow_html=True)
     st.markdown("---")
     
-    # APIキーの安全な取得（エラー防止）
+    # APIキーの安全な取得
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
     except Exception:
@@ -70,7 +70,6 @@ if check_password():
     env_location = st.sidebar.multiselect("② 設置環境・大分類（複数選択可）", ["一般地域（屋外・雨掛かり）", "一般地域（日陰・軒下）", "塩害警戒地域（海岸付近）", "寒冷地・凍枯地域", "屋内（常時乾燥）"], default=[])
     wet_status = st.sidebar.multiselect("③ 湿潤状態（複数選択可）", ["常時乾燥状態", "乾湿の繰り返し（ひび割れ進展）", "常時湿潤状態（漏水・滞水）"], default=[])
     
-    # 省略していた旧項目の完全復活
     cement_type = st.sidebar.selectbox("④ 使用セメントの種類", ["（未選択）", "普通ポルトランドセメント", "高炉セメント（B種など）", "早強ポルトランドセメント", "不明"])
     elapsed_years = st.sidebar.selectbox("⑤ 供用年数（経過年数）", ["（未選択）", "5年未満（初期欠陥の可能性）", "5年以上〜20年未満", "20年以上〜50年未満", "50年以上（高経年化）"])
     crack_type = st.sidebar.selectbox("⑥ 目視での主たる劣化症状", ["（未選択・写真から自動判定）", "ひび割れ（単一・規則性）", "亀甲状のひび割れ（ASRなどの疑い）", "エフロレッセンス（白華）の析出伴う", "コンクリートの剥離・鉄筋露出（爆裂現象）", "漏水・遊離石灰を伴う錆汁"])
@@ -79,7 +78,7 @@ if check_password():
     region_info = st.sidebar.text_area("⑦ 地域・気象特記事項", placeholder="例: 冬季の凍結融解サイクルが多い地域、海岸から近く飛来塩分が多い等")
 
     # --- 4. メイン画面：業務情報・写真アップロード ---
-    col1, col2 = st.columns(2) # ★修正箇所：エラーを防ぐため引数を明記
+    col1, col2 = st.columns(2)
     with col1:
         st.markdown("### 🏢 業務情報と補足")
         project_name = st.text_input("項目A：物件名（工事名・業務名）", placeholder="（例：塩竈清掃工場 躯体調査）")
@@ -136,13 +135,13 @@ if check_password():
         st.markdown("### 📊 高精密診断レポート")
         if uploaded_files and 'execute_analysis' in locals() and execute_analysis:
             if not api_key:
-                st.error("APIキーが設定されていません。")
+                st.error("APIキーが設定されていません。StreamlitのSecrets設定を確認してください。")
             else:
                 with st.spinner("🔍 熟練コンクリート診断士AI(Gemini)が過去の実績に基づき統合解析中..."):
                     try:
                         genai.configure(api_key=api_key)
-                        # ★修正箇所：安定動作するモデル（1.5-flash）に変更
-                        model = genai.GenerativeModel('gemini-1.5-flash')
+                        # ★修正箇所：環境依存のエラーを回避するため「-latest」を付与したモデル名に変更
+                        model = genai.GenerativeModel('gemini-1.5-flash-latest')
                         
                         env_text = "、".join(env_location) if env_location else "指定なし"
                         wet_text = "、".join(wet_status) if wet_status else "指定なし"
@@ -189,7 +188,6 @@ if check_password():
                         # アラートカラーの判定（手動入力優先、なければ0）
                         final_width = manual_width
                         if final_width == 0:
-                            # ★修正箇所：テキストからの抽出バグを修正
                             try:
                                 if "確定ひび割れ幅:" in full_result_text:
                                     val_str = full_result_text.split("確定ひび割れ幅:")[1].split("mm").strip()
@@ -236,7 +234,6 @@ if check_password():
                         p_name = project_name if project_name else "コンクリート構造物躯体調査"
                         l_name = location_name if location_name else "現場写真"
 
-                        # 複数枚の写真を縦に並べて台帳を作成
                         start_row = 1
                         for idx, img in enumerate(images):
                             ws.merge_cells(f"A{start_row}:D{start_row}")
