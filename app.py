@@ -10,23 +10,19 @@ import re
 import time
 from datetime import datetime
 
-# --- 1. ページ基本設定と白バグ完全防御のUIアーキテクチャ ---
+# --- 1. ページ基本設定と白化・消失バグ完全防御のUIアーキテクチャ ---
 st.set_page_config(page_title="コンクリート劣化診断システム", layout="wide", initial_sidebar_state="collapsed")
 
 # セッション状態の安全な初期化
-if 'current_step' not in st.session_state: st.session_state.current_step = "step1"
+if 'main_nav_radio' not in st.session_state: st.session_state.main_nav_radio = "🏠 ① 設置地域・環境判定"
 if 'full_result_text' not in st.session_state: st.session_state.full_result_text = None
 if 'final_width' not in st.session_state: st.session_state.final_width = 0.0
 if 'analysis_completed' not in st.session_state: st.session_state.analysis_completed = False
 
-# ナビゲーション切り替え用の確実なコールバック関数
-def set_step(step):
-    st.session_state.current_step = step
-
-# --- プロ仕様の完全固定CSS（ライトモード干渉の完全遮断） ---
+# --- プロ仕様の完全固定CSS（消失バグ・ライトモード干渉の完全遮断） ---
 st.markdown("""
 <style>
-/* 全体テーマをダークモードに強制固定（絶対に白くさせない） */
+/* 全体テーマをダークモードに強制固定 */
 .main, .stApp, [data-testid="stAppViewContainer"] { background-color: #0F172A !important; color: #F8FAFC !important; font-family: 'Helvetica Neue', Arial, sans-serif; }
 [data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
 
@@ -38,57 +34,93 @@ input::placeholder, textarea::placeholder { color: #64748B !important; opacity: 
 
 /* チェックボックスの赤み（警告色）を根絶し、青色に固定 */
 div[data-testid="stCheckbox"] div[role="checkbox"] { border-color: #475569 !important; background-color: transparent !important; }
-div[data-testid="stCheckbox"] div[role="checkbox"][aria-checked="true"] { background-color: #0284C7 !important; border-color: #38BDF8 !important; box-shadow: 0 0 10px rgba(56,189,248,0.5) !important; }
+div[data-testid="stCheckbox"] div[role="checkbox"][aria-checked="true"],
+div[data-testid="stCheckbox"] div[role="checkbox"][data-checked="true"] {
+    background-color: #0284C7 !important; border-color: #38BDF8 !important; box-shadow: 0 0 10px rgba(56,189,248,0.5) !important;
+}
 div[data-testid="stCheckbox"] div[role="checkbox"] svg { stroke: #FFFFFF !important; fill: none !important; }
 
 /* ==================================================================== */
-/* 【最重要】ナビゲーションタイルの完全固定化（絶対に白くならず、巨大に） */
+/* 【完全解決】ラジオボタンを「巨大なiPhone風タイル」に強制進化させる */
 /* ==================================================================== */
-/* 選択されていないタイル（Secondary） */
-button[data-testid="baseButton-secondary"] {
+
+/* ラジオボタン全体のコンテナをFlexboxにして絶対に横並びに強制（ボタン消失を防止） */
+div[role="radiogroup"] {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 20px !important;
+    width: 100% !important;
+    background-color: transparent !important;
+}
+
+/* 各選択肢のラベルを巨大なタイルに化けさせる */
+div[role="radiogroup"] > label {
+    flex: 1 !important;
     background-color: #1E293B !important; /* 強制ダークネイビー */
     border: 2px solid #334155 !important;
-    border-radius: 16px !important;
-    height: 120px !important; /* 高さを巨大化 */
-    width: 100% !important;
+    border-radius: 16px !important; /* 美しい角丸 */
+    padding: 35px 15px !important; /* 上下余白で巨大化 */
+    margin: 0 !important;
+    cursor: pointer !important;
+    text-align: center !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
     transition: all 0.3s ease !important;
 }
-button[data-testid="baseButton-secondary"] * {
-    color: #94A3B8 !important; /* 文字色はライトグレー */
-    font-size: 22px !important; /* 文字を特大に */
-    font-weight: 800 !important;
-    white-space: pre-wrap !important; /* 改行を有効化 */
-}
-button[data-testid="baseButton-secondary"]:hover {
-    background-color: #111827 !important;
+
+/* ホバー時の美しい浮き上がり効果 */
+div[role="radiogroup"] > label:hover {
     border-color: #38BDF8 !important;
+    background-color: #111827 !important;
     transform: translateY(-4px) !important;
 }
-button[data-testid="baseButton-secondary"]:hover * { color: #FFFFFF !important; }
 
-/* 選択中のタイル および 実行ボタン（Primary） */
+/* 選択されているタイルの発光スタイル */
+div[role="radiogroup"] > label[data-checked="true"],
+div[role="radiogroup"] > label[aria-checked="true"] {
+    background-color: #0284C7 !important;
+    border-color: #38BDF8 !important;
+    box-shadow: 0 0 25px rgba(56, 189, 248, 0.5) !important;
+}
+
+/* ラジオボタン本来の丸いアイコン（ポッチ）を完全に隠す */
+div[role="radiogroup"] > label > div:first-child {
+    display: none !important;
+}
+
+/* タイル内のテキストのスタイル（超巨大化） */
+div[role="radiogroup"] > label p {
+    font-size: 26px !important;
+    font-weight: 900 !important;
+    color: #94A3B8 !important; /* 未選択時はライトグレー */
+    margin: 0 !important;
+}
+
+/* 選択されているテキストは純白で光らせる */
+div[role="radiogroup"] > label[data-checked="true"] p,
+div[role="radiogroup"] > label[aria-checked="true"] p {
+    color: #FFFFFF !important;
+    text-shadow: 0 0 10px rgba(255,255,255,0.5) !important;
+}
+
+/* ==================================================================== */
+
+/* 診断実行ボタン専用デザイン（メインボタン） */
 button[data-testid="baseButton-primary"] {
     background-color: #0284C7 !important; /* 鮮やかなブルー */
     border: 2px solid #38BDF8 !important;
-    border-radius: 16px !important;
-    box-shadow: 0 0 20px rgba(56, 189, 248, 0.5) !important;
+    border-radius: 12px !important;
+    height: 70px !important;
     width: 100% !important;
     transition: all 0.3s ease !important;
-}
-/* カラム内のPrimary（選択中ナビゲーション）は高さを巨大化 */
-div[data-testid="column"] button[data-testid="baseButton-primary"] {
-    height: 120px !important;
-}
-/* カラム外のPrimary（解析実行ボタン等）は通常より少し大きめに */
-div.stButton > button[data-testid="baseButton-primary"] {
-    min-height: 65px !important;
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.3) !important;
 }
 button[data-testid="baseButton-primary"] * {
-    color: #FFFFFF !important; /* 文字は純白 */
     font-size: 22px !important;
-    font-weight: 900 !important;
-    white-space: pre-wrap !important;
+    font-weight: bold !important;
+    color: #FFFFFF !important;
 }
 button[data-testid="baseButton-primary"]:hover {
     background-color: #38BDF8 !important;
@@ -103,18 +135,20 @@ button[data-testid="baseButton-primary"]:hover {
 </style>
 """, unsafe_allow_html=True)
 
-# 解析完了時に③番ボタンをパルス点滅させるアニメーション
-if st.session_state.analysis_completed and st.session_state.current_step != "step3":
+# 解析完了時に③番タイルをパルス点滅させるアニメーション
+if st.session_state.analysis_completed and st.session_state.main_nav_radio != "📑 ③ 統合診断レポート・Excel":
     st.markdown("""
     <style>
     @keyframes pulse_glow {
         0% { box-shadow: 0 0 10px rgba(56,189,248,0.2); background-color: #1E293B !important; border-color: #334155 !important; }
         100% { box-shadow: 0 0 30px #38BDF8, inset 0 0 15px #38BDF8; background-color: #0284C7 !important; border-color: #38BDF8 !important; }
     }
-    div[data-testid="column"]:nth-child(3) button {
+    div[role="radiogroup"] > label:nth-child(3) {
         animation: pulse_glow 1.2s infinite alternate !important;
     }
-    div[data-testid="column"]:nth-child(3) button * { color: #FFFFFF !important; }
+    div[role="radiogroup"] > label:nth-child(3) p {
+        color: #FFFFFF !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -125,6 +159,7 @@ def check_password():
         if st.session_state["password"] == "tn0000": st.session_state["authenticated"] = True
         else: st.error("❌ パスワードが違います")
     if not st.session_state["authenticated"]:
+        if os.path.exists("logo.png"): st.image("logo.png", width=200)
         st.markdown("<h2 style='text-align: center;'>🔒 コンクリート劣化診断システム</h2>", unsafe_allow_html=True)
         st.text_input("アクセスパスワードを入力", type="password", on_change=password_entered, key="password")
         return False
@@ -133,33 +168,32 @@ def check_password():
 if check_password():
     api_key = st.secrets.get("GEMINI_API_KEY", "")
 
-    # クリーンな業務ヘッダー（余計な言葉を排除）
+    # クリーンな業務ヘッダー
     st.markdown("<h1 style='margin-bottom: 0;'>コンクリート劣化診断システム</h1>", unsafe_allow_html=True)
     st.markdown("<p style='color: #38BDF8; font-size: 16px; margin-top: 5px;'>農林水産省機能保全手引き・JCI複合劣化マトリクス完全準拠</p>", unsafe_allow_html=True)
 
-    # 巨大ナビゲーションメニュー（Primary/Secondary属性で白バグを回避）
-    b1_type = "primary" if st.session_state.current_step == "step1" else "secondary"
-    b2_type = "primary" if st.session_state.current_step == "step2" else "secondary"
-    b3_type = "primary" if st.session_state.current_step == "step3" else "secondary"
-
-    col_nav1, col_nav2, col_nav3 = st.columns(3)
-    with col_nav1: st.button("🏠\n① 設置地域・環境判定", type=b1_type, on_click=set_step, args=("step1",), use_container_width=True)
-    with col_nav2: st.button("📸\n② 写真・変状チェック入力", type=b2_type, on_click=set_step, args=("step2",), use_container_width=True)
-    with col_nav3: st.button("📑\n③ 統合診断レポート・Excel", type=b3_type, on_click=set_step, args=("step3",), use_container_width=True)
+    # 【消失・白化バグ完全防御】ラジオボタンを用いた巨大タイルメニュー
+    selected_step = st.radio(
+        "ナビゲーション",
+        ["🏠 ① 設置地域・環境判定", "📸 ② 写真・変状チェック入力", "📑 ③ 統合診断レポート・Excel"],
+        horizontal=True,
+        label_visibility="collapsed",
+        key="main_nav_radio"
+    )
 
     st.markdown("---")
 
     # ==========================================
     # STEP 1: 設置地域・環境判定
     # ==========================================
-    if st.session_state.current_step == "step1":
+    if selected_step == "🏠 ① 設置地域・環境判定":
         st.markdown("### 1. 構造物所在地および環境マッピング解析")
         address_input = st.text_input("所在地を入力（例：山形県酒田市大浜、国道112号など）", placeholder="例：山形県酒田市大浜 国道112号", key="addr_in")
         
         auto_freeze, auto_salt, auto_asr, auto_complex = "未判定", "未判定", "未判定", "所在地に基づく複合劣化マトリクスとの照合待機中"
         
         if address_input:
-            cold_regions = ["北海道", "青森", "岩手", "秋田", "山形", "宮城", "福島", "新潟", "富山", "石川", "福井", "長野", "岐阜", "群馬", "山梨"]
+            cold_regions = ["北海道", "青森", "岩手", "秋田", "山形", "宮城", "福島", "新潟", "富山", "石川", "福井", "長野", "岐阜", "群生", "山梨"]
             salt_keywords = ["浜", "海岸", "港", "湾", "岬", "磯", "シーサイド", "大浜", "臨海", "塩", "浦", "津"]
             asr_regions = ["山形", "秋田", "新潟", "富山", "石川", "福井", "長野", "岐阜", "京都", "兵庫", "香川", "徳島", "福岡", "佐賀", "熊本"]
             
@@ -198,12 +232,12 @@ if check_password():
             crack_type = st.selectbox("⑥ 支配的損傷症状", ["ひび割れ（単一）", "浮き・剥離・剥落", "鉄筋露出・爆裂", "エフロ析出伴う漏水", "ASR（３方向クラック）", "スケーリング（凍害・摩耗）"])
         
         region_info = st.text_area("⑦ 現場特記事項", placeholder="例: 交通振動あり、不同沈下の形跡あり等")
-        st.success("✅ 設定が完了しました。画面上部の『📸 ② 写真・変状チェック入力』ボタンを押してください。")
+        st.success("✅ 設定が完了しました。画面上部の『📸 ② 写真・変状チェック入力』タイルを押してください。")
 
     # ==========================================
     # STEP 2: 現場写真・変状チェック入力
     # ==========================================
-    elif st.session_state.current_step == "step2":
+    elif selected_step == "📸 ② 写真・変状チェック入力":
         st.markdown("### 1. 業務基本情報の入力")
         col_a, col_b, col_c = st.columns(3)
         with col_a: project_name = st.text_input("物件名（工事・業務名）", placeholder="例：塩竈清掃工場 躯体調査")
@@ -260,7 +294,7 @@ if check_password():
                 photo_excel_records.append({"no":f"No.{idx+1}","part":p_part,"kind":p_kind,"dim":f"W:{p_w}mm/L:{p_l}cm/A:{p_a}㎡","comment":f"エフロ:{p_efflo}/錆:{p_rust}|{p_c}"})
                 st.markdown("---")
             
-            # 高精密AI診断実行ボタン（Primary属性で目立たせる）
+            # 高精密AI診断実行ボタン（Primary属性で確実に青くする）
             if st.button("🚀 環境マトリクスと全写真データを統合して高精密AI診断を実行", type="primary", use_container_width=True):
                 if not api_key: st.error("APIキーが設定されていません。")
                 else:
@@ -293,8 +327,8 @@ if check_password():
                             st.session_state.final_width = final_w
                             st.session_state.analysis_completed = True
                             
-                            # 診断完了後、確実にStep3へ遷移
-                            st.session_state.current_step = "step3"
+                            # 診断完了後、タブを自動的に切り替え
+                            st.session_state.main_nav_radio = "📑 ③ 統合診断レポート・Excel"
                             st.rerun()
                             
                         except Exception as e:
@@ -303,7 +337,7 @@ if check_password():
     # ==========================================
     # STEP 3: 統合診断レポート・Excel調書
     # ==========================================
-    elif st.session_state.current_step == "step3":
+    elif selected_step == "📑 ③ 統合診断レポート・Excel":
         if st.session_state.full_result_text:
             fw = st.session_state.final_width
             if "劣化度Ⅲ" in st.session_state.full_result_text or "劣化度Ⅳ" in st.session_state.full_result_text or fw >= 1.0:
@@ -316,7 +350,7 @@ if check_password():
                 color_code, status_title, alert_desc = "#3B82F6", "🔵 【複合劣化度判定保留：現地実測要請】", "ℹ️ 正確な縮尺基準が確認できないため判定を保留しています。現地実測値を確認してください。"
             
             st.markdown(f"<div class='status-card' style='border-left: 8px solid {color_code};'><h3>{status_title}</h3><p style='font-size:15px; margin-top:8px;'>{alert_desc}</p></div>", unsafe_allow_html=True)
-            st.markdown("### 📑 統合解析レポート")
+            st.markdown("### 📑 AI Suite Pro 統合解析レポート")
             st.markdown(f"<div class='report-text-box'>{st.session_state.full_result_text}</div>", unsafe_allow_html=True)
 
             # --- Excel調書出力モジュール ---
@@ -364,6 +398,6 @@ if check_password():
                 wb.save(output)
                 st.download_button(label="📥 官庁提出用 高精密Excel調書をダウンロード", data=output.getvalue(), file_name=f"確定診断調書_{datetime.now().strftime('%Y%m%d')}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             except Exception as excel_err:
-                st.error(f"Excel写真台帳の生成中にエラーが発生しました: {excel_err}")
+                st.error(f"Excel出力エラー: {excel_err}")
         else:
             st.info("💡 診断が実行されていません。ステップ②で現場写真をアップロードし、解析を実行してください。")
