@@ -144,8 +144,8 @@ if check_password():
                     try:
                         genai.configure(api_key=api_key)
                         
-                        # 【修正箇所】安定版のモデル名 'gemini-1.5-flash' に変更
-                        model = genai.GenerativeModel('gemini-1.5-flash')
+                        # 【修正確定】以前成功実績のある『gemini-2.5-flash』に変更
+                        model = genai.GenerativeModel('gemini-2.5-flash')
                         
                         env_text = "、".join(env_location) if env_location else "指定なし"
                         wet_text = "、".join(wet_status) if wet_status else "指定なし"
@@ -161,7 +161,7 @@ if check_password():
 
 【環境・現場入力情報】
 - 構造物: {struct_type}
-- 環境・湿潤: {env_text} / {wet_text}
+- Environment: {env_text} / {wet_text}
 - セメント種類: {cement_type}
 - 供用年数: {elapsed_years}
 - 主たる劣化症状: {crack_type}
@@ -224,65 +224,4 @@ if check_password():
                         ws.views.sheetView[0].showGridLines = False
 
                         font_header = Font(name="MS ゴシック", size=14, bold=True)
-                        font_label = Font(name="MS ゴシック", size=11, bold=True)
-                        font_data = Font(name="MS ゴシック", size=11)
-                        
-                        thin_side = Side(border_style="thin")
-                        border_cell = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
-
-                        ws.column_dimensions['A'].width = 15
-                        ws.column_dimensions['B'].width = 45
-                        ws.column_dimensions['C'].width = 2
-                        ws.column_dimensions['D'].width = 60
-                        
-                        p_name = project_name if project_name else "コンクリート構造物躯体調査"
-                        l_name = location_name if location_name else "現場写真"
-
-                        start_row = 1
-                        for idx, img in enumerate(images):
-                            ws.merge_cells(f"A{start_row}:D{start_row}")
-                            ws[f"A{start_row}"] = f"{p_name} 状 況 写 真"
-                            ws[f"A{start_row}"].font = font_header
-                            ws.merge_cells(f"A{start_row+1}:D{start_row+1}")
-                            ws[f"A{start_row+1}"] = f"施設名： {l_name}"
-                            ws[f"A{start_row+1}"].font = font_header
-                            ws[f"A{start_row+1}"].alignment = Alignment(horizontal="right")
-
-                            info_labels = ["写真No.", "撮影箇所", "工 種", "位 置", "記 事（AI見解）"]
-                            article_text = full_result_text if idx == 0 else photo_comments[idx]
-                            info_values = [str(idx + 1), f"現場撮影写真 {idx+1}", "劣化状況調査", l_name, article_text]
-
-                            for i, (label, value) in enumerate(zip(info_labels, info_values)):
-                                r = start_row + 3 + i
-                                ws[f"A{r}"] = label
-                                ws[f"B{r}"] = value
-                                ws[f"A{r}"].font = font_label
-                                ws[f"B{r}"].font = font_data
-                                ws[f"A{r}"].border = border_cell
-                                ws[f"B{r}"].border = border_cell
-                                ws[f"A{r}"].alignment = Alignment(horizontal="center", vertical="center")
-                                ws[f"B{r}"].alignment = Alignment(wrap_text=True, vertical="top")
-
-                            ws.row_dimensions[start_row + 7].height = 200
-
-                            img_buffer = io.BytesIO()
-                            img.save(img_buffer, format="PNG")
-                            img_buffer.seek(0)
-                            xl_img = ExcelImage(img_buffer)
-                            xl_img.width, xl_img.height = 420, 310
-                            ws.add_image(xl_img, f"D{start_row + 3}")
-
-                            start_row += 35 
-
-                        output = io.BytesIO()
-                        wb.save(output)
-                        
-                        st.markdown("---")
-                        st.download_button(
-                            label="📥 官庁・役所・提出用 Excel写真台帳をダウンロード",
-                            data=output.getvalue(),
-                            file_name=f"【調査状況写真】{project_name if project_name else 'コンクリート調査'}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        )
-                    except Exception as e:
-                        st.error(f"解析中にエラーが発生しました: {e}")
+                        font_label = Font(name="MS ゴシック", size=11,
