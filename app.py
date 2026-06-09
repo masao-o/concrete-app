@@ -10,28 +10,30 @@ import re
 import time
 from datetime import datetime
 
-# --- 1. ページ設定と超ワイド・iPhoneタイルダッシュボードCSS ---
+# --- 1. ページ設定と超ワイド・実務特化ダッシュボードCSS ---
 st.set_page_config(page_title="T&N コンクリート劣化診断 AI Suite Pro", layout="wide")
 
-# セッション状態の初期化
+# セッション状態の完全初期化
 if 'full_result_text' not in st.session_state:
     st.session_state.full_result_text = None
 if 'final_width' not in st.session_state:
     st.session_state.final_width = 0.0
 if 'analysis_completed' not in st.session_state:
     st.session_state.analysis_completed = False
+if 'current_step' not in st.session_state:
+    st.session_state.current_step = "ステップ①"
 
-# 解析完了時に③番ボタンをiPhone風に発光・パルス点滅させるアニメーションCSS
+# 解析完了時にステップ③の選択枠をネオンブルーで動的明滅させる誘導CSS
 animation_css = ""
 if st.session_state.analysis_completed:
     animation_css = """
     div[data-testid="stPills"] div[role="radiogroup"] div:nth-child(3) label {
-        animation: iphone_pulse 1.4s infinite alternate !important;
+        animation: pulse_glow_fixed 1.4s infinite alternate !important;
         border: 2px solid #38BDF8 !important;
     }
-    @keyframes iphone_pulse {
+    @keyframes pulse_glow_fixed {
         0% { box-shadow: 0 4px 15px rgba(56, 189, 248, 0.2); background-color: #1E293B !important; }
-        100% { box-shadow: 0 0 30px #38BDF8, inset 0 0 15px #38BDF8; background-color: #0284C7 !important; }
+        100% { box-shadow: 0 0 25px #38BDF8, inset 0 0 12px #38BDF8; background-color: #0284C7 !important; }
     }
     """
 
@@ -40,27 +42,34 @@ st.markdown(f"""
 .main {{ background-color: #0F172A; color: #FFFFFF; }}
 .stApp {{ background-color: #0F172A; }}
 
-/* 不要になった左側サイドバーを完全に隠す（超ワイド画面化） */
+/* 画面を圧迫する左側サイドバーおよび不要なシステム文字の完全非表示化 */
 section[data-testid="stSidebar"] {{ display: none !important; }}
 div[data-testid="collapsedControl"] {{ display: none !important; }}
 
-/* ユニバーサル純白フォント設定 */
+/* 選択ツール上部の不要なStreamlit既定文字を非表示化 */
+div[data-testid="stPills"] label[data-testid="stWidgetLabel"] {{
+    display: none !important;
+    height: 0px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}}
+
+/* フォント表示の最適化 */
 h1, h2, h3, h4, h5, h6, p, span, label, .stMarkdown,
 .stCheckbox label, div[data-testid="stMarkdownContainer"] p {{
     color: #FFFFFF !important; font-family: 'Helvetica Neue', Arial, sans-serif; font-weight: bold !important;
 }}
 
-/* 入力枠・選択ボックスのハッキリ化（黒文字で視認性担保） */
+/* 入力・選択コンポーネントの黒文字視認性確保 */
 input, textarea, select, div[data-baseweb="select"] * {{ color: #0F172A !important; font-weight: bold !important; }}
 input::placeholder, textarea::placeholder {{ color: #64748B !important; opacity: 1 !important; }}
 
-/* マルチセレクトのバッジ内の文字色調整 */
 div[data-testid="stMultiSelect"] span[data-baseweb="tag"] * {{
     color: #0F172A !important;
     font-weight: bold !important;
 }}
 
-/* チェックボックス選択時のオレンジ・赤色（警告色）を完全に消し去り、信頼の青に固定 */
+/* チェックボックスを信頼の青に統一（赤みの完全根絶） */
 div[data-testid="stCheckbox"] div[role="checkbox"] {{
     border-color: #475569 !important;
 }}
@@ -74,12 +83,13 @@ div[data-testid="stCheckbox"] div[role="checkbox"] svg {{
     fill: none !important;
 }}
 
-/* 【大改善・バグ完全修正】st.pillsの内部構造変更に追従し、ボタンを巨大なiPhoneタイルへ強制上書き */
+/* 【バグ完全修正】重なりを解決し、実務に適した巨大な3セクション切り替えボックスを新設 */
 div[data-testid="stPills"] div[role="radiogroup"] {{
     display: flex !important;
-    gap: 25px !important;
+    gap: 20px !important;
     width: 100% !important;
     background-color: transparent !important;
+    padding-top: 10px !important;
 }}
 div[data-testid="stPills"] div[role="radiogroup"] > div {{
     flex: 1 !important;
@@ -87,85 +97,64 @@ div[data-testid="stPills"] div[role="radiogroup"] > div {{
 div[data-testid="stPills"] div[role="radiogroup"] label {{
     background: linear-gradient(135deg, #1E293B, #111827) !important;
     border: 2px solid #334155 !important;
-    border-radius: 24px !important; /* iPhone風の美しい丸み */
-    padding: 30px 20px !important; /* 内側の余白を大きくしてタイル感を強調 */
+    border-radius: 14px !important;
+    padding: 24px 15px !important;
     text-align: center !important;
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
     cursor: pointer !important;
     display: block !important;
     width: 100% !important;
 }}
 div[data-testid="stPills"] div[role="radiogroup"] label:hover {{
-    transform: translateY(-5px) !important;
+    transform: translateY(-3px) !important;
     border-color: #475569 !important;
-    box-shadow: 0 12px 25px rgba(0, 0, 0, 0.5) !important;
 }}
 
-/* 【最重要】タイルの文字サイズを強制巨大化（バグを根本治療） */
+/* ボックス内のテキスト書式強制固定 */
 div[data-testid="stPills"] div[role="radiogroup"] label * {{
-    font-size: 24px !important; /* 24pxに超巨大化 */
-    font-weight: 900 !important;
+    font-size: 20px !important;
+    font-weight: 800 !important;
     color: #FFFFFF !important;
-    line-height: 1.5 !important;
-    white-space: pre-wrap !important; /* 改行文字（\n）を完全に有効化 */
+    line-height: 1.4 !important;
 }}
 
-/* 現在アクティブ（選択中）なタイルの発光処理 */
+/* 現在選択されているボックスの強調・発光 */
 div[data-testid="stPills"] div[role="radiogroup"] input[type="radio"]:checked + div label {{
     background: linear-gradient(135deg, #0284C7, #1E293B) !important;
     border-color: #38BDF8 !important;
-    box-shadow: 0 0 25px rgba(56, 189, 248, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.4) !important;
 }}
 div[data-testid="stPills"] div[role="radiogroup"] input[type="radio"]:checked + div label * {{
-    color: #38BDF8 !important; /* 選択中アイコン・文字をネオンブルーに */
-    text-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+    color: #38BDF8 !important;
 }}
 
-/* ラジオボタン自体の黒ポッチ（丸）を完全に消し去る */
 div[data-testid="stPills"] input[type="radio"] {{
     display: none !important;
 }}
 
-/* ③番用の動的パルス明滅CSSの注入 */
 {animation_css}
 
-/* メインの巨大「診断実行ボタン」専用スタイル */
+/* 解析ボタン専用スタイル */
 div.stButton > button {{
     background: #0284C7 !important;
     color: #FFFFFF !important;
     border: 2px solid #38BDF8 !important;
-    border-radius: 12px !important;
-    padding: 18px 28px !important;
+    border-radius: 10px !important;
+    padding: 16px 24px !important;
     font-size: 18px !important;
     font-weight: bold !important;
     width: 100% !important;
-    transition: all 0.2s ease !important;
 }}
 div.stButton > button:hover {{
     background: #38BDF8 !important;
-    box-shadow: 0 0 25px #38BDF8 !important;
-    border-color: #38BDF8 !important;
-}}
-div.stButton > button:focus, div.stButton > button:active {{
-    background: #0F172A !important;
-    border-color: #38BDF8 !important;
-    color: #38BDF8 !important;
+    box-shadow: 0 0 20px #38BDF8 !important;
 }}
 
-/* ファイルアップローダー */
-div[data-testid="stFileUploader"] section {{ background-color: #F8FAFC !important; border: 2px dashed #94A3B8 !important; }}
-div[data-testid="stFileUploader"] section div, div[data-testid="stFileUploader"] section p,
-div[data-testid="stFileUploader"] section span, div[data-testid="stFileUploader"] section small {{
-    color: #475569 !important; font-weight: bold !important;
-}}
-
-/* 各種カード・ボックス */
+/* 各種コンテナ */
 .dashboard-card {{ padding: 25px; background-color: #1E293B; border-radius: 16px; border: 1px solid #334155; margin-bottom: 20px; }}
 .status-card {{ padding: 25px; background-color: #1E293B; border-radius: 16px; margin-bottom: 20px; border-top: 1px solid #334155; border-right: 1px solid #334155; border-bottom: 1px solid #334155; }}
 .photo-input-box {{ background-color: #1E293B; padding: 20px; border-radius: 12px; border: 1px dashed #38BDF8; margin-bottom: 20px; }}
 
-/* レポート表示 */
 .report-text-box {{
     background-color: #1E293B !important;
     color: #FFFFFF !important;
@@ -175,183 +164,129 @@ div[data-testid="stFileUploader"] section span, div[data-testid="stFileUploader"
     font-size: 16px;
     line-height: 1.8;
     white-space: pre-wrap;
-    font-family: 'Helvetica Neue', Arial, sans-serif;
 }}
 </style>
 """, unsafe_allow_html=True)
 
-# パスワード認証関数
+# 閉域セキュリティパスワード認証
 def check_password():
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
-    
     def password_entered():
         if st.session_state["password"] == "tn0000":
             st.session_state["authenticated"] = True
             del st.session_state["password"]
         else:
-            st.error("❌ パスワードが違います")
-            
+            st.error("❌ アクセスパスワードが違います")
     if not st.session_state["authenticated"]:
         if os.path.exists("logo.png"): 
             st.image("logo.png", width=250)
-        st.markdown("<h2 style='text-align: center; color: white;'>🔒 閉域環境・コンクリート劣化診断 AI Suite Pro</h2>", unsafe_allow_html=True)
-        st.text_input("アクセスパスワード（技術管理者専用）", type="password", on_change=password_entered, key="password")
+        st.markdown("<h2>🔒 コンクリート劣化診断 AI Suite Pro（関係者専用）</h2>", unsafe_allow_html=True)
+        st.text_input("パスワードを入力してください", type="password", on_change=password_entered, key="password")
         return False
     return True
 
 if check_password():
     api_key = st.secrets.get("GEMINI_API_KEY", "")
 
-    # ヘッダータイトル表示
-    col_logo_head, col_title_head = st.columns([1, 5])
-    with col_logo_head:
-        if os.path.exists("logo.png"):
-            st.image("logo.png", width=160)
-    with col_title_head:
-        st.markdown("<h1 style='color: white; margin-top: 5px; margin-bottom: 0;'>🚗 AI Suite Pro</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #38BDF8; font-size: 16px; font-weight: bold;'>実務特化型コンクリート高精密診断ダッシュボード（最新実務成果・JCI複合劣化完全対応）</p>", unsafe_allow_html=True)
+    # 業務ヘッダー
+    col_l, col_r = st.columns([1, 5])
+    with col_l:
+        if os.path.exists("logo.png"): st.image("logo.png", width=150)
+    with col_r:
+        st.markdown("<h1 style='margin-top:5px; margin-bottom:0;'>コンクリート構造物高精密総合診断システム</h1>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #38BDF8; font-size:15px; margin-top:0;'>農林水産省機能保全手引き・日本コンクリート工学会複合劣化判定マップ完全準拠</p>", unsafe_allow_html=True)
 
-    # --- 3. 【バグ完全解決】iPhoneスタイル・ナビゲーション ---
-    st.markdown("<p style='color: #38BDF8; font-size:14px; margin-top:15px; margin-bottom:-10px;'>▼ iPhoneスタイル・ナビゲーション（四角い大きなタイルを直接タップして画面切り替え）</p>", unsafe_allow_html=True)
-    
-    # st.pillsのバグを上書きし、改行コードを含めた超巨大タイルに設定
+    # 上部3セクション切り替えボックス（テキストの重なりを完全修復）
     current_step = st.pills(
         label="",
-        options=["🏠\n① 設置地域・環境判定", "📸\n② 写真・変状チェック入力", "📑\n③ 統合診断レポート・Excel"],
-        default="🏠\n① 設置地域・環境判定",
+        options=["ステップ①：設置地域・環境判定", "ステップ②：現場写真・変状チェック入力", "ステップ③：統合診断レポート・Excel調書"],
+        default="ステップ①：設置地域・環境判定",
         label_visibility="collapsed"
     )
 
     st.markdown("---")
 
     # ==========================================
-    # STEP 1 SCREEN: ホーム・JCI環境設定（超ワイド大画面）
+    # SCREEN 1: 設置地域・環境判定
     # ==========================================
-    if current_step == "🏠\n① 設置地域・環境判定":
-        st.markdown("### 📍 1. 構造物所在地・JCI環境マッピング自動計算判定（超ワイド大画面）")
-        st.markdown("<p style='color: #94A3B8;'>住所を入力すると、日本コンクリート工学会（JCI）報告書および気象統計データを基に、単一劣化のみならず『2因子・3因子の複合劣化危険度分布』を裏側で自動解析・抽出します。</p>", unsafe_allow_html=True)
+    if current_step == "ステップ①：設置地域・環境判定":
+        st.markdown("### 📍 1. 対象構造物の所在地入力（環境因子の自動算出）")
+        address_input = st.text_input("構造物の設置住所・施設名を入力してください", placeholder="例：山形県酒田市大浜 国道112号", key="addr_in")
         
-        address_input = st.text_input("構造物の設置住所・施設名を入力（例：山形県酒田市、北陸沿岸、国道・高速路線名など）", placeholder="例：山形県酒田市大浜 国道112号", key="addr_in")
-        
-        auto_freeze_info = "判定不能（住所未入力）"
-        auto_salt_info = "判定不能（住所未入力）"
-        auto_asr_bone = "判定不能（住所未入力）"
+        auto_freeze_info = "住所未入力"
+        auto_salt_info = "住所未入力"
+        auto_asr_bone = "住所未入力"
         auto_complex_degrade = "住所が入力されると、JCI複合劣化ハザードマップ（塩害×凍害、凍害×ASR、ASR×塩害）との適合性を自動判定します。"
-        auto_weather_summary = "特記事項なし"
         
         if address_input:
             cold_regions = ["北海道", "青森", "岩手", "秋田", "山形", "宮城", "福島", "新潟", "富山", "石川", "福井", "長野", "岐阜", "群馬", "山梨"]
             salt_keywords = ["浜", "海岸", "港", "湾", "岬", "磯", "シーサイド", "大浜", "臨海", "塩", "浦", "津"]
+            asr_regions = ["山形", "秋田", "新潟", "富山", "石川", "福井", "長野", "岐阜", "京都", "兵庫", "香川", "徳島", "福岡", "佐賀", "熊本"]
             
             is_cold = any(reg in address_input for reg in cold_regions)
             is_coast = any(kw in address_input for kw in salt_keywords)
-            
-            asr_regions = ["山形", "秋田", "新潟", "富山", "石川", "福井", "長野", "岐阜", "京都", "兵庫", "香川", "徳島", "福岡", "佐賀", "熊本"]
             has_asr_bone = any(ar in address_input for ar in asr_regions)
             
-            if is_cold:
-                auto_freeze_info = "【高危険度区分】冬季の凍結融解サイクル（年平均45回以上）に曝されるエリア。組織脆弱化・スケーリングの潜在リスク大。"
-            else:
-                auto_freeze_info = "【低〜中危険度区分】深刻な凍結融解の繰り返し作用を受ける確率は比較的低いエリア。"
+            if is_cold: auto_freeze_info = "【高危険度】冬季凍結融解サイクル年平均45回以上地域。膨張圧リスク高。"
+            else: auto_freeze_info = "【一般環境】深刻な凍結融解作用を受ける確率は比較的低いエリア。"
                 
-            if is_coast:
-                auto_salt_info = "【重塩害警戒（S地域準拠）】沿岸近傍。対馬海流等に起因する北西の強風により、極めて高い飛来塩分がコンクリート表面に定着する危険領域。"
+            if is_coast: auto_salt_info = "【重塩害警戒（S地域）】沿岸近傍。強風による高濃度飛来塩分の定着危険地帯。"
             elif is_cold and any(road in address_input for road in ["国道", "高速", "インター", "JCT", "バイパス", "道"]):
-                auto_salt_info = "【塩害警戒（融雪剤重点路線）】寒冷地幹線道路網。路面凍結防止剤の定期的な大量散布により、車両飛沫（塩化物イオン）を直接受ける飛沫環境。"
-            else:
-                auto_salt_info = "【一般環境】直接的な飛来塩分、または規則的な塩化カルシウム等の散布影響を受けにくい内陸エリア。"
+                auto_salt_info = "【塩害警戒（融雪剤散布路線）】寒冷地幹線道路。凍結防止剤散布による塩化物イオン供給環境。"
+            else: auto_salt_info = "【一般地域】塩化物の直接的影響を受けにくい内陸エリア。"
 
-            if has_asr_bone:
-                auto_asr_bone = "【ASR要注意/反応性骨材分布地域】JCI報告書においてアルカリシリカ反応性骨材（安山岩・流紋岩等）の過去の供給・流通履歴、および目視損傷報告が多数確認されている警戒地帯。"
-            else:
-                auto_asr_bone = "【反応性骨材低分布地域】ASRに起因する単一の異常膨張クラックの潜在リスクは比較的穏健なエリア。"
+            if has_asr_bone: auto_asr_bone = "【ASR要注意地域】アルカリシリカ反応性骨材の過去の流通履歴・損傷報告地域。"
+            else: auto_asr_bone = "【低リスク】ASRに起因する異常膨張の潜在リスクは比較的穏健なエリア。"
 
             if is_cold and is_coast and has_asr_bone:
-                auto_complex_degrade = "⚠️【JCIトリプル複合劣化警報：塩害×凍害×ASR】日本海側沿岸高危険帯に合致。ASRによる初期ひび割れを起点に、飛来塩分と凍結融解水分が内部へ急速浸透。鉄筋の不動態被膜破壊（マクロセル腐食）とスケーリングが二乗・三乗の相乗効果で進展する最過酷環境。"
+                auto_complex_degrade = "⚠️【JCIトリプル複合劣化：塩害×凍害×ASR】日本海側沿岸最過酷マトリクス。ASRクラックを起点に塩分と水分が浸透、マクロセル腐食と組織スケーリングが相乗進展する最過酷領域。"
             elif is_cold and is_coast:
-                auto_complex_degrade = "⚡【JCI複合劣化要警戒：塩害×凍害】寒冷沿岸、または融雪剤散布を受ける寒冷道路橋環境。凍結融解による表層組織の微細剥離（スケーリング）と、塩化物イオンによる鉄筋腐食（爆裂現象）が同時複合進展するリスク高。"
+                auto_complex_degrade = "⚡【JCI複合劣化：塩害×凍害】寒冷沿岸、または融雪剤散布を受ける道路橋。表層脆弱化（スケーリング）と鉄筋腐食（爆裂現象）が同時複合進展。"
             elif is_cold and has_asr_bone:
-                auto_complex_degrade = "🔎【JCI複合劣化要警戒：凍害×ASR】内陸寒冷ASR地帯。アルカリシリカゲルの吸水膨張圧クラックへ、冬季の凍結水分が浸入。凍結膨張圧がひび割れ幅をさらに拡張させる、物理的・化学的複合スパイラル進展エリア。"
+                auto_complex_degrade = "🔎【JCI複合劣化：凍害×ASR】内陸寒冷ASR地帯。ゲルの吸水膨張クラックへ冬季水分が浸入し、凍結膨張圧で開口が拡張する複合スパイラル領域。"
             elif is_coast and has_asr_bone:
-                auto_complex_degrade = "⚓【JCI複合劣化要警戒：ASR×塩害】温暖沿岸部。ASRクラックの開口により、外部からの塩化物イオン拡散係数が数倍に跳ね上がり、内部鉄筋の早期発錆・かぶり厚剥離を誘発するエリア。"
+                auto_complex_degrade = "⚓【JCI複合劣化：ASR×塩害】沿岸ASR地帯。ASRクラックから外部塩化物イオンが超急速に内部拡散し、早期鉄筋発錆を引き起こす環境。"
             else:
-                auto_complex_degrade = "✅【マクロ複合リスク低】現時点の立地条件から、JCI指針に定められる致命的な2因子以上の複合侵食リスクは比較的低いと推定されます。"
-
-            auto_weather_summary = f"JCI報告書マッピング連携：凍害={is_cold} / 塩害={is_coast or '融雪剤'} / ASR={has_asr_bone} の複合環境因子を裏プロンプトへ自動埋め込みしました。"
+                auto_complex_degrade = "✅【単一/低複合リスク】現時点の立地条件から、JCI指針に定められる致命的な複合侵食リスクは比較的低いと推定されます。"
 
         if address_input:
-            st.markdown(f"<div class='status-card' style='border-left: 8px solid #38BDF8;'><h4>🧬 JCI環境マトリクス自動解析判定結果</h4><p style='font-size:15px; color:#38BDF8; font-weight:bold; margin-bottom:5px;'>{auto_complex_degrade}</p><p style='font-size:13px; color:#94A3B8;'>{auto_weather_summary}</p></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='status-card' style='border-left: 8px solid #38BDF8;'><h4>🧬 日本コンクリート工学会（JCI）複合劣化ハザードマップ自動照合</h4><p style='font-size:15px; color:#38BDF8; font-weight:bold; margin-bottom:0;'>{auto_complex_degrade}</p></div>", unsafe_allow_html=True)
             c1, c2, c3 = st.columns(3)
-            with c1:
-                st.markdown(f"<div class='dashboard-card'><h4>❄️ 凍害危険度（分布照合）</h4><p style='font-size:14px; color:#CBD5E1;'>{auto_freeze_info}</p></div>", unsafe_allow_html=True)
-            with c2:
-                st.markdown(f"<div class='dashboard-card'><h4>🌊 塩害範囲（道路橋・沿岸）</h4><p style='font-size:14px; color:#CBD5E1;'>{auto_salt_info}</p></div>", unsafe_allow_html=True)
-            with c3:
-                st.markdown(f"<div class='dashboard-card'><h4>💎 ASR反応性骨材・損傷エリア</h4><p style='font-size:14px; color:#CBD5E1;'>{auto_asr_bone}</p></div>", unsafe_allow_html=True)
+            with c1: st.markdown(f"<div class='dashboard-card'><h4>❄️ 凍害危険度（分布）</h4><p style='font-size:14px; color:#CBD5E1;'>{auto_freeze_info}</p></div>", unsafe_allow_html=True)
+            with c2: st.markdown(f"<div class='dashboard-card'><h4>🌊 塩害範囲（道路橋・沿岸）</h4><p style='font-size:14px; color:#CBD5E1;'>{auto_salt_info}</p></div>", unsafe_allow_html=True)
+            with c3: st.markdown(f"<div class='dashboard-card'><h4>💎 ASR反応性骨材分布</h4><p style='font-size:14px; color:#CBD5E1;'>{auto_asr_bone}</p></div>", unsafe_allow_html=True)
 
-        st.markdown("---")
-        st.markdown("### 🛠️ 2. プロ診断士用 条件設定（旧サイドバー項目を使いやすく中央配置）")
+        st.markdown("### 🛠️ 2. 構造物基本条件の設定（旧サイドバー項目統合）")
         cc1, cc2, cc3 = st.columns(3)
         with cc1:
-            struct_type = st.selectbox("① 構造物の種類（実績資料・詳細調査準拠）", [
-                "（未選択・写真から自動判定）", 
-                "建築物（校舎・庁舎・屋内運動場：外壁躯体・柱・梁・パラペット）", 
-                "橋梁（上部工床版・主桁・下部工橋台・橋脚・遊間伸縮部）", 
-                "ボックスカルバート・縦型土留共同溝・水路暗渠", 
-                "擁壁（重力式擁壁・鉄筋コンクリートL型擁壁・水抜き穴周辺）", 
-                "開渠・水路構造物・開閉所変電基礎", 
-                "ダム（重力式コンクリートダム・アーチダム・越流部躯体）"
+            struct_type = st.selectbox("① 構造物の種類", [
+                "（未選択・写真から自動判定）", "建築物（校舎・庁舎・屋内運動場：外壁躯体・柱・梁）", "橋梁（上部工床版・主桁・下部工橋台・橋脚・遊間伸縮部）", "ボックスカルバート・縦型土留共同溝・水路暗渠", "擁壁（重力式擁壁・鉄筋コンクリートL型擁壁）", "開渠・水路構造物・開閉所変電基礎", "ダム（重力式コンクリートダム・アーチダム・越流部躯体）"
             ])
-            cement_type = st.selectbox("④ 使用セメントの種類", [
-                "（未選択）", "普通ポルトランドセメント", "高炉セメント（B種等：複合劣化・塩害・ASR抑制効果）", "早強ポルトランドセメント", "不明（経年構造物）"
-            ])
+            cement_type = st.selectbox("④ 使用セメントの種類", ["（未選択）", "普通ポルトランドセメント", "高炉セメント（B種等：複合劣化・塩害・ASR抑制）", "早強ポルトランドセメント", "不明（経年構造物）"])
         with cc2:
-            env_location = st.multiselect("② 物理的設置条件（複数選択可）", [
-                "屋外・直接雨掛かり（乾湿の繰り返し環境）", 
-                "日陰・日裏・軒下（湿気が滞留しやすい環境）", 
-                "常時流水・水撃を受ける環境（流水摩耗・スケーリングエリア）",
-                "屋内・常時乾燥（二酸化炭素による中性化環境）"
-            ], default=[])
-            elapsed_years = st.selectbox("⑤ 供用年数（大目安）", [
-                "（未選択）", "10年未満", "10年以上〜30年未満", "30年以上〜50年未満（高経年化）", "50年以上（農水・国交省機能保全判定期）"
-            ])
-            manual_years_input = st.text_input("（任意）具体的な築年数・竣工年（例：築42年、1984年竣工）")
+            env_location = st.multiselect("② 物理的設置条件（複数選択可）", ["屋外・直接雨掛かり（乾湿の繰り返し）", "日陰・日裏・軒下（湿気滞留環境）", "常時流水・水撃を受ける環境（流水摩耗・スケーリング）", "屋内・常時乾燥（中性化環境）"], default=[])
+            elapsed_years = st.selectbox("⑤ 供用年数（大目安）", ["（未選択）", "10年未満", "10年以上〜30年未満", "30年以上〜50年未満（高経年化）", "50年以上（農水・国交省機能保全判定期）"])
+            manual_years_input = st.text_input("（任意項目）具体的な築年数・竣工年（例：築42年、1984年竣工）")
         with cc3:
-            wet_status = st.multiselect("③ 内部湿潤・漏水状況（複数選択可）", [
-                "漏水なし（常時乾燥状態）", 
-                "微細な湿潤（変色・湿気あり）", 
-                "活動性の漏水あり（水みちの形成・進行性エフロ）", 
-                "高水圧環境（ダム・沈殿池等の浸透圧環境）"
-            ], default=[])
-            crack_type = st.selectbox("⑥ 目視・打診での支配的損傷（全資料対応）", [
-                "（未選択・写真から自動判定）", 
-                "ひび割れ（単一クラック・構造応力/乾燥収縮型）", 
-                "浮き・剥離・コンクリート塊の剥落（打診中空音）", 
-                "鉄筋露出・爆裂現象（内部腐食錆水の滲出伴う）", 
-                "エフロレッセンス（遊離石灰・白華）の析出を伴う活動性漏水", 
-                "亀甲状ひび割れ（ASR・アルカリ骨材反応の３方向マップ状クラック）", 
-                "スケーリング・微細組織のうろこ状脆弱化（凍害・物理的摩耗）"
-            ])
+            wet_status = st.multiselect("③ 内部湿潤・漏水状況（複数選択可）", ["漏水なし（常時乾燥）", "微細な湿潤（変色・湿気あり）", "活動性の漏水あり（水みち形成・進行性エフロ）", "高水圧環境（ダム・沈殿池等の浸透圧環境）"], default=[])
+            crack_type = st.selectbox("⑥ 目視・打診での支配的損傷", ["（未選択・写真から自動判定）", "ひび割れ（単一クラック・構造応力/乾燥収縮）", "浮き・剥離・コンクリート塊の剥落（打診中空音）", "鉄筋露出・爆裂現象（内部腐食錆水の滲出伴う）", "エフロレッセンス（遊離石灰）の析出を伴う活動性漏水", "亀甲状ひび割れ（ASR・アルカリ骨材反応の３方向マップ状クラック）", "スケーリング・微細組織のうろこ状脆弱化（凍害・物理的摩耗）"])
             
-        region_info = st.text_area("⑦ その他、現場特記・周辺状況（手動補足用）", placeholder="例: 近傍に大型車両の交通量が多く微振動あり、等")
-        st.success("✅ ステップ①環境条件設定完了：画面上部の『📸 ② 写真・変状チェック入力』の大きな四角いタイルをクリックしてください。")
+        region_info = st.text_area("⑦ その他、現場特記・周辺状況", placeholder="例: 近傍に大型車両の交通量が多く微振動あり、等")
+        st.success("✅ 設定完了：画面最上部へスクロールし、中央の『ステップ②：現場写真・変状チェック入力』ボックスを選択してください。")
 
     # ==========================================
-    # STEP 2 SCREEN: 現場写真・劣化個別チェック入力
+    # SCREEN 2: 現場写真・変状チェック入力
     # ==========================================
-    elif current_step == "📸\n② 写真・変状チェック入力":
-        st.markdown("### 🏢 1. 提出用 業務基本情報の入力（詳細調査・操作ガイド仕様）")
+    elif current_step == "ステップ②：現場写真・変状チェック入力":
+        st.markdown("### 🏢 1. 提出用 業務基本情報の入力")
         col_a, col_b, col_c = st.columns(3)
-        with col_a:
-            project_name = st.text_input("項目A：物件名（工事名・業務名）", placeholder="（例：塩竈清掃工場 躯体調査）")
-        with col_b:
-            location_name = st.text_input("項目B：調査位置・測定箇所詳細", placeholder="（例：沈殿池 南面壁）")
-        with col_c:
-            inspector_name = st.text_input("項目C：調査担当者（コンクリート診断士名）", value="T&N技術管理者")
+        with col_a: project_name = st.text_input("項目A：物件名（工事名・業務名）", placeholder="（例：塩竈清掃工場 躯体調査）")
+        with col_b: location_name = st.text_input("項目B：調査位置・測定箇所詳細", placeholder="（例：沈殿池 南面壁）")
+        with col_c: inspector_name = st.text_input("項目C：調査担当者（コンクリート診断士名）", value="T&N技術管理者")
             
         st.markdown("---")
-        st.markdown("### 🔧 2. 技術者による構造・施工要因の補足チェック（※完全青色反転・赤みゼロ仕様）")
+        st.markdown("### 🔧 2. 技術者による構造・施工要因の補足チェック")
         ch1, ch2, ch3 = st.columns(3)
         with ch1:
             cb_shear = st.checkbox("構造的要因・不同沈下・土圧・耐震性能上のせん断ひび割れ疑い")
@@ -371,8 +306,8 @@ if check_password():
         human_factors_text = "、".join(selected_factors) if selected_factors else "特になし"
 
         st.markdown("---")
-        st.markdown("### 📸 3. 現場写真アップロード ＆ 【JCI複合劣化対応・高精密個別チェックモジュール】")
-        uploaded_files = st.file_uploader("写真をアップロードしてください（最大6枚）", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+        st.markdown("### 📸 3. 現場写真アップロード ＆ 個別損傷トレーサビリティプロット")
+        uploaded_files = st.file_uploader("写真をアップロードしてください（最大6枚・一括Excel調書出力対応）", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
         
         images = []
         photo_details_prompt = []
@@ -387,33 +322,22 @@ if check_password():
                 img = Image.open(file)
                 images.append(img)
                 
-                st.markdown(f"<div class='photo-input-box'><h4>📸 写真 No.{idx+1} 損傷トレーサビリティプロット</h4></div>", unsafe_allow_html=True)
-                
+                st.markdown(f"<div class='photo-input-box'><h4>📸 写真 No.{idx+1} 損傷詳細プロット（通り芯・打診数量連動）</h4></div>", unsafe_allow_html=True)
                 col_img_view, col_form_view = st.columns([1, 2])
-                with col_img_view:
-                    st.image(img, caption=f"Photo No.{idx+1}", use_container_width=True)
+                with col_img_view: st.image(img, use_container_width=True)
                 
                 with col_form_view:
                     f_col1, f_col2 = st.columns(2)
                     with f_col1:
-                        p_part = st.text_input(f"No.{idx+1} 📏 損傷図面位置・通り芯・部材番号（必須）", key=f"p_part_{idx}", placeholder="例: 伸縮装置周辺 X5通り芯 B1梁上面、橋台ハンチ左面")
-                        p_crack_kind = st.selectbox(f"No.{idx+1} ひび割れ・亀裂・JCI損傷パターンの特定", [
-                            "構造クラック（応力・せん断方向ひび割れ）", 
-                            "乾燥収縮クラック（経年・環境性ひび割れ）", 
-                            "アルカリ骨材反応（ASR：３方向マップ状・ゲル析出を伴う）", 
-                            "凍害（層状剥離・うろこ状脆弱化・ポップアウト）", 
-                            "塩害・融雪剤侵食（鉄筋に沿った直線ひび割れ・爆裂現象）",
-                            "複合劣化疑い（2因子以上の変状が同時重畳している状態）"
-                        ], key=f"p_kind_{idx}")
-                        
-                        st.markdown("<label style='font-size:13px;'>⚠️ 損傷随伴状況チェック</label>", unsafe_allow_html=True)
+                        p_part = st.text_input(f"No.{idx+1} 損傷図面位置・通り芯・部材番号（必須）", key=f"p_part_{idx}", placeholder="例: X5通り芯 B1梁上面、橋台ハンチ左面")
+                        p_crack_kind = st.selectbox(f"No.{idx+1} ひび割れ・変状パターンの特定", ["構造クラック（応力・せん断方向ひび割れ）", "乾燥収縮クラック（経年・環境性ひび割れ）", "アルカリ骨材反応（ASR：３方向マップ状・ゲル析出を伴う）", "凍害（層状剥離・うろこ状脆弱化・ポップアウト）", "塩害・融雪剤侵食（鉄筋に沿った直線ひび割れ・爆裂現象）", "複合劣化疑い（2因子以上の変状が同時重畳している状態）"], key=f"p_kind_{idx}")
                         p_efflo = st.checkbox(f"進行性漏水・白華（エフロレッセンス）を随伴する", key=f"p_efflo_{idx}")
                         p_rust = st.checkbox(f"断面剥離・鉄筋露出・錆汁の滲出を随伴する", key=f"p_rust_{idx}")
                     with f_col2:
                         p_width = st.number_input(f"No.{idx+1} 実測クラック幅 (mm)", min_value=0.0, step=0.05, value=0.0, key=f"p_width_{idx}")
                         p_length = st.number_input(f"No.{idx+1} 実測クラック長さ (cm)", min_value=0.0, step=1.0, value=0.0, key=f"p_length_{idx}")
                         p_area = st.number_input(f"No.{idx+1} 打診による浮き・剥離推定数量 (㎡)", min_value=0.00, step=0.05, value=0.00, key=f"p_area_{idx}")
-                        p_comment = st.text_area(f"No.{idx+1} 📝 記事・打診所見・損傷スケッチ補足", key=f"p_comm_{idx}", placeholder="例: 伸縮継手部からの水みち形成を確認。JCI報告書が指摘する塩害×凍害の複合シナリオに極めて酷似。打診にて浮きを確認。")
+                        p_comment = st.text_area(f"No.{idx+1} 📝 記事・打診所見・補修設計への補足", key=f"p_comm_{idx}", placeholder="例: 伸縮継手部からの水みち形成を確認。打診にて浮きを確認。修復設計数量へ反映のこと。")
                 
                 efflo_str = "確認" if p_efflo else "なし"
                 rust_str = "確認" if p_rust else "なし"
@@ -429,21 +353,22 @@ if check_password():
                 })
                 st.markdown("---")
             
-            # 診断実行ボタン
-            if st.button("🚀 所在地気象因数とJCI複合劣化マトリクス、全写真データを統合して高精密AI診断を実行", key="execute_analysis_btn"):
+            # 高精密解析ボタン
+            if st.button("🚀 所在地気象因数とJCI複合劣化マトリクス、全写真データを統合して高精密AI診断を実行"):
                 st.session_state.analysis_completed = False
                 st.session_state.full_result_text = None
                 
                 if not api_key:
                     st.error("APIキーが設定されていません。")
                 else:
-                    with st.spinner("🔍 熟練コンクリート診断士AIがJCI複合劣化報告書マトリクス・各種点検マニュアルと照合しながら高精密ビジョンリンク解析中..."):
+                    with st.spinner("🔍 熟練コンクリート診断士AIがJCI複合劣化ハザードマップ・各種実績成果と完全同期しながら精密解析中..."):
                         max_retries = 3
                         for attempt in range(max_retries):
                             try:
                                 genai.configure(api_key=api_key)
                                 model = genai.GenerativeModel('gemini-2.5-flash')
                                 
+                                # 入力退避キャッシュ
                                 st.session_state.excel_records_cache = photo_excel_records
                                 st.session_state.struct_type_cache = struct_type
                                 st.session_state.project_name_cache = project_name
@@ -463,10 +388,10 @@ if check_password():
                                 has_asr_bone = any(ar in addr_in_val for ar in asr_regions)
                                 
                                 calc_complex = "一般環境"
-                                if is_cold and is_coast and has_asr_bone: calc_complex = "⚠️【JCIトリプル複合劣化：塩害×凍害×ASR】日本海側沿岸最過酷マトリクス。ASRクラックを起点に塩分と水分が浸透、マクロセル腐食と組織スケーリングが相乗進展。"
-                                elif is_cold and is_coast: calc_complex = "⚡【JCI複合劣化：塩害×凍害】寒冷沿岸、または融雪剤散布を受ける道路橋。表層脆弱化と鉄筋腐食（爆裂）が複合。"
-                                elif is_cold and has_asr_bone: calc_complex = "🔎【JCI複合劣化：凍害×ASR】内陸寒冷ASR地帯。ゲルの吸水膨張クラックへ冬季水分が浸入し凍結膨張圧で開口拡張。"
-                                elif is_coast and has_asr_bone: calc_complex = "⚓【JCI複合劣化：ASR×塩害】沿岸ASR地帯。ASRクラックから外部塩化物イオンが超急速に内部拡散し早期鉄筋発錆を引き起こす環境。"
+                                if is_cold and is_coast and has_asr_bone: calc_complex = "⚠️【JCIトリプル複合劣化警報：塩害×凍害×ASR】日本海側沿岸最過酷マトリクス。ASRクラックを起点に塩分と水分が浸透、マクロセル腐食と組織スケーリングが相乗進展。"
+                                elif is_cold and is_coast: calc_complex = "⚡【JCI複合劣化要警戒：塩害×凍害】寒冷沿岸、または融雪剤散布を受ける道路橋。表層脆弱化と鉄筋腐食（爆裂）が複合進展。"
+                                elif is_cold and has_asr_bone: calc_complex = "🔎【JCI複合劣化要警戒：凍害×ASR】内陸寒冷ASR地帯。ゲルの吸水膨張クラックへ冬季水分が浸入し凍結膨張圧で開口拡張。"
+                                elif is_coast and has_asr_bone: calc_complex = "⚓【JCI複合劣化要警戒：ASR×塩害】沿岸ASR地帯。ASRクラックから外部塩化物イオンが超急速に内部拡散し早期鉄筋発錆を引き起こす環境。"
                                 
                                 st.session_state.complex_degrade_cache = calc_complex
                                 
@@ -474,9 +399,10 @@ if check_password():
                                 wet_text = "、".join(wet_status) if wet_status else "指定なし"
                                 photo_details_joined = "\n".join(photo_details_prompt)
                                 
+                                # 学習マニュアル・実績を網羅した最高精密プロンプト
                                 prompt = f"""
 あなたは日本最高峰の「コンクリート診断士」であり、日本コンクリート工学会（JCI）の「複合劣化コンクリート構造物の評価と維持管理計画研究委員会 報告書」のハザードマップ・相乗進展メカニズム、ならびに農水省・国交省の機能保全・点検マニュアルを完全にマスターしている専門家です。
-既存の定型回答や他者の著作権を侵害する文面を完全に排除し、提示されたシステム自動算出のJCI環境データ、および【技術者が写真ごとに通り芯・図面位置・実測寸法・打診数量を精緻に入力したデータ】を極めて高度にビジョンリンク解析し、完全オーダーメイドの公式報告書をゼロから起稿してください。
+テンプレート記述や汎用回答を完全に排除し、提示されたシステム自動算出のJCI環境データ、および【技術者が写真ごとに通り芯・図面位置・実測寸法・打診数量を精緻に入力したデータ】を極めて高度にビジョンリンク解析し、完全オーダーメイドの公式報告書をゼロから起稿してください。
 
 【対象構造物の所在地・JCI複合劣化環境マトリクスデータ（システム自動算出）】
 - 住所・施設名: {addr_in_val}
@@ -511,19 +437,16 @@ if check_password():
                                 response = model.generate_content(request_contents)
                                 st.session_state.full_result_text = response.text
                                 
-                                final_w = manual_width
+                                final_w = p_width
                                 if final_w == 0:
                                     try:
                                         match = re.search(r"最大ひび割れ幅:\s*([0-9.]+)", st.session_state.full_result_text)
-                                        if match:
-                                            final_w = float(match.group(1))
-                                    except Exception:
-                                        final_w = 0.0
+                                        if match: final_w = float(match.group(1))
+                                    except Exception: final_w = 0.0
                                 st.session_state.final_width = final_w
                                 st.session_state.analysis_completed = True
-                                st.success("🎉 AI高精密診断完了！画面最上部へスクロールし、パルス明滅している『📑 ③ 統合診断レポート・Excel』タイルをクリックしてください。")
+                                st.success("🎉 高精密AI解析が正常完了しました。画面上部の『ステップ③：統合診断レポート・Excel調書』ボックスを選択してください。")
                                 break 
-                                
                             except Exception as e:
                                 if "429" in str(e) or "quota" in str(e).lower():
                                     if attempt < max_retries - 1:
@@ -531,12 +454,12 @@ if check_password():
                                         continue
                                 raise e
         else:
-            st.info("ℹ️ 写真がアップロードされていません。まずは写真をドロップしてください。")
+            st.info("ℹ️ 写真がアップロードされていません。現場写真をドロップしてください。")
 
     # ==========================================
-    # STEP 3 SCREEN: 統合診断レポート・Excel調書
+    # SCREEN 3: 統合診断レポート・Excel調書
     # ==========================================
-    elif current_step == "📑\n③ 統合診断レポート・Excel":
+    elif current_step == "ステップ③：統合診断レポート・Excel調書":
         if st.session_state.full_result_text:
             fw = st.session_state.final_width
             if "劣化度Ⅲ" in st.session_state.full_result_text or "劣化度Ⅳ" in st.session_state.full_result_text or fw >= 1.0:
@@ -580,8 +503,7 @@ if check_password():
                 
                 p_name_xl = st.session_state.project_name_cache if st.session_state.project_name_cache else "コンクリート構造物健全度調査業務"
                 l_name_xl = st.session_state.location_name_cache if st.session_state.location_name_cache else "現場調査対象箇所"
-                if st.session_state.address_input_cache:
-                    l_name_xl = f"{st.session_state.address_input_cache} ({l_name_xl})"
+                if st.session_state.address_input_cache: p_name_xl = f"{st.session_state.address_input_cache} {p_name_xl}"
 
                 start_row = 1
                 for idx, img in enumerate(st.session_state.images_cache):
@@ -597,14 +519,7 @@ if check_password():
                     ws[f"A{start_row+1}"].alignment = Alignment(horizontal="right")
 
                     info_labels = ["写真No. / 撮影項目", "工種・部材・変状分類", "位置・通り芯プロット面", "手動入力・実測寸法数量", "JCI複合劣化マトリクス特性", "AI判定・工学的考察・記事"]
-                    info_values = [
-                        rec["no"], 
-                        f"{st.session_state.struct_type_cache} ({rec['kind']})", 
-                        rec["part"], 
-                        rec["dim"],
-                        st.session_state.complex_degrade_cache, 
-                        f"{rec['comment']}\n\n【全体複合劣化統括報告】\n{st.session_state.full_result_text if idx == 0 else 'No.1写真の全体統括レポートを参照'}"
-                    ]
+                    info_values = [rec["no"], f"{st.session_state.struct_type_cache} ({rec['kind']})", rec["part"], rec["dim"], st.session_state.complex_degrade_cache, f"{rec['comment']}\n\n【全体複合劣化統括報告】\n{st.session_state.full_result_text if idx == 0 else 'No.1写真の全体統括レポートを参照'}"]
 
                     for i, (label, value) in enumerate(zip(info_labels, info_values)):
                         r = start_row + 3 + i
@@ -613,7 +528,6 @@ if check_password():
                         ws[f"A{r}"].font = font_label
                         ws[f"A{r}"].fill = fill_label
                         ws[f"B{r}"].font = font_data
-                        
                         ws[f"A{r}"].border = border_cell
                         ws[f"B{r}"].border = border_cell
                         ws[f"A{r}"].alignment = Alignment(horizontal="center", vertical="center")
@@ -646,4 +560,4 @@ if check_password():
             except Exception as excel_err:
                 st.error(f"Excel写真台帳の生成中にエラーが発生しました: {excel_err}")
         else:
-            st.info("💡 『📸 ② 写真・変状チェック入力』画面でデータを入力し、「高精密AI診断を実行」ボタンを押してください。診断が完了すると、自動的にこの画面へ誘導されレポートとExcel出力モジュールが生成されます。")
+            st.info("💡 『ステップ②：現場写真・変状チェック入力』画面でデータを入力し、最下部の解析実行ボタンを押してください。診断が完了するとレポートとExcel出力モジュールがここへ自動展開されます。")
