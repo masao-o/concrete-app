@@ -140,6 +140,7 @@ if check_password():
             else:
                 with st.spinner("🔍 熟練コンクリート診断士AI(Gemini 2.5)が解析中..."):
                     try:
+                        # 【修正】モデル名を「gemini-2.5-flash」に完全固定しAPIエラーを防止
                         genai.configure(api_key=api_key)
                         model = genai.GenerativeModel('gemini-2.5-flash')
                         
@@ -258,4 +259,8 @@ if check_password():
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
                     except Exception as e:
-                        st.error(f"エラーが発生しました: {e}")
+                        # 【重要】429（Quota制限）エラーが起きた場合に、画面が真っ白にクラッシュするのを防ぐ親切なメッセージ
+                        if "429" in str(e) or "quota" in str(e).lower():
+                            st.error("⚠️ Google AIの無料利用枠の制限（1分間あたりの回数上限）に達しました。お手数ですが、1分ほど待ってからもう一度「解析を実行」ボタンを押してください。")
+                        else:
+                            st.error(f"エラーが発生しました: {e}")
