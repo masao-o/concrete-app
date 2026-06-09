@@ -11,7 +11,7 @@ import time
 from datetime import datetime
 
 # --- 1. ページ基本設定と超高度化UIアーキテクチャ ---
-st.set_page_config(page_title="コンクリート劣化診断 AI Suite Pro", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="コンクリート劣化診断システム", layout="wide", initial_sidebar_state="collapsed")
 
 # セッション状態の安全な初期化
 if 'current_step' not in st.session_state: st.session_state.current_step = "step1"
@@ -23,12 +23,12 @@ if 'analysis_completed' not in st.session_state: st.session_state.analysis_compl
 def set_step(step):
     st.session_state.current_step = step
 
-# --- プロ仕様の洗練されたCSS定義 ---
+# --- プロ仕様の洗練されたCSS定義（白化バグの完全根絶） ---
 st.markdown("""
 <style>
 /* 全体テーマ設定（ダークモード強制固定） */
-.main { background-color: #0F172A; color: #F8FAFC; font-family: 'Helvetica Neue', Arial, sans-serif; }
-.stApp { background-color: #0F172A; }
+.main { background-color: #0F172A !important; color: #F8FAFC !important; font-family: 'Helvetica Neue', Arial, sans-serif; }
+.stApp { background-color: #0F172A !important; }
 [data-testid="stSidebar"], [data-testid="collapsedControl"] { display: none !important; }
 
 /* 共通フォントと入力UIの視認性担保 */
@@ -36,7 +36,7 @@ h1, h2, h3, h4, h5, p, span, label, .stMarkdown p { color: #F8FAFC !important; f
 input, textarea, select, div[data-baseweb="select"] * { color: #0F172A !important; font-weight: bold !important; }
 
 /* チェックボックスのプロフェッショナルな配色固定（赤み根絶） */
-div[data-testid="stCheckbox"] div[role="checkbox"] { border-color: #475569 !important; }
+div[data-testid="stCheckbox"] div[role="checkbox"] { border-color: #475569 !important; background-color: transparent !important; }
 div[data-testid="stCheckbox"] div[role="checkbox"][aria-checked="true"] {
     background-color: #0284C7 !important; border-color: #38BDF8 !important; box-shadow: 0 0 10px rgba(56, 189, 248, 0.4) !important;
 }
@@ -45,54 +45,44 @@ div[data-testid="stCheckbox"] div[role="checkbox"] svg { stroke: #FFFFFF !import
 /* ========================================================================= */
 /* 【最重要修正】ナビゲーション用巨大タイルの構築（絶対に白くならない完全防壁） */
 /* ========================================================================= */
-/* 2番目のカラムブロック（ナビゲーション）内のボタンを強制的に巨大タイル化 */
-div[data-testid="stHorizontalBlock"]:nth-of-type(2) div[data-testid="column"] div.stButton > button {
-    background: linear-gradient(135deg, #1E293B, #0F172A) !important; /* 強制的にダークネイビー */
+button[data-testid="baseButton-secondary"] {
+    background-color: #1E293B !important; /* 確実にダークネイビーで塗りつぶす */
     border: 2px solid #334155 !important;
-    border-radius: 24px !important; /* 美しい角丸 */
-    min-height: 160px !important; /* 縦幅を160pxに巨大化 */
+    border-radius: 16px !important; /* 美しい角丸 */
+    height: 120px !important; /* 高さを巨大化 */
     width: 100% !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    box-shadow: 0 6px 15px rgba(0,0,0,0.4) !important;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    padding: 0 !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
+    transition: all 0.3s ease !important;
 }
-/* ボタン内の文字を強制的に特大化 */
-div[data-testid="stHorizontalBlock"]:nth-of-type(2) div[data-testid="column"] div.stButton > button p {
-    font-size: 26px !important; /* 文字を26pxへ超巨大化 */
+button[data-testid="baseButton-secondary"] * {
+    color: #FFFFFF !important; /* 文字は絶対に白 */
+    font-size: 22px !important; /* 文字を巨大化 */
     font-weight: 900 !important;
-    color: #94A3B8 !important; /* 未選択時は明るいグレー */
-    line-height: 1.5 !important;
-    white-space: pre-wrap !important; /* 改行を完全に許可 */
-    margin: 0 !important;
+    white-space: pre-wrap !important; /* 改行を許可 */
 }
-/* ホバー時の美しい浮き上がり */
-div[data-testid="stHorizontalBlock"]:nth-of-type(2) div[data-testid="column"] div.stButton > button:hover {
-    transform: translateY(-6px) !important;
+button[data-testid="baseButton-secondary"]:hover {
     border-color: #38BDF8 !important;
-    box-shadow: 0 15px 30px rgba(0,0,0,0.6) !important;
-}
-div[data-testid="stHorizontalBlock"]:nth-of-type(2) div[data-testid="column"] div.stButton > button:hover p {
-    color: #FFFFFF !important; /* マウスを乗せたら白く光る */
+    background-color: #111827 !important;
+    transform: translateY(-4px) !important;
 }
 
 /* 診断実行ボタン専用デザイン（メインボタン） */
 button[data-testid="baseButton-primary"] {
-    background: #0284C7 !important;
+    background-color: #0284C7 !important;
     border: 2px solid #38BDF8 !important;
     border-radius: 12px !important;
-    min-height: 70px !important;
+    height: 70px !important;
     width: 100% !important;
     transition: all 0.3s ease !important;
 }
-button[data-testid="baseButton-primary"] p {
+button[data-testid="baseButton-primary"] * {
     font-size: 22px !important;
     font-weight: bold !important;
     color: #FFFFFF !important;
 }
 button[data-testid="baseButton-primary"]:hover {
-    background: #38BDF8 !important;
+    background-color: #38BDF8 !important;
     box-shadow: 0 0 25px #38BDF8 !important;
 }
 
@@ -104,38 +94,26 @@ button[data-testid="baseButton-primary"]:hover {
 </style>
 """, unsafe_allow_html=True)
 
-# 現在のステップに応じた「選択中タイルの青色発光」CSSの動的注入
+# 現在アクティブなステップのタイルを青く発光させる動的CSS
 active_index = {"step1": 1, "step2": 2, "step3": 3}[st.session_state.current_step]
+animation_rule = "animation: pulse_glow 1.5s infinite alternate !important;" if st.session_state.analysis_completed and active_index != 3 else ""
+
 st.markdown(f"""
 <style>
-div[data-testid="stHorizontalBlock"]:nth-of-type(2) div[data-testid="column"]:nth-child({active_index}) div.stButton > button {{
-    background: linear-gradient(135deg, #0284C7, #1E293B) !important;
-    border: 3px solid #38BDF8 !important;
-    box-shadow: 0 0 35px rgba(56, 189, 248, 0.5) !important;
+div[data-testid="stHorizontalBlock"]:nth-of-type(1) > div:nth-child({active_index}) button[data-testid="baseButton-secondary"] {{
+    background-color: #0284C7 !important;
+    border-color: #38BDF8 !important;
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.5) !important;
 }}
-div[data-testid="stHorizontalBlock"]:nth-of-type(2) div[data-testid="column"]:nth-child({active_index}) div.stButton > button p {{
-    color: #FFFFFF !important;
-    text-shadow: 0 0 10px rgba(255, 255, 255, 0.5) !important;
+@keyframes pulse_glow {{
+    0% {{ box-shadow: 0 0 10px rgba(56,189,248,0.2); border-color: #334155 !important; }}
+    100% {{ box-shadow: 0 0 30px #38BDF8; border-color: #38BDF8 !important; background-color: #0284C7 !important; }}
+}}
+div[data-testid="stHorizontalBlock"]:nth-of-type(1) > div:nth-child(3) button[data-testid="baseButton-secondary"] {{
+    {animation_rule}
 }}
 </style>
 """, unsafe_allow_html=True)
-
-# 解析完了時に③番ボタンをパルス点滅させるアニメーション
-if st.session_state.analysis_completed and active_index != 3:
-    st.markdown("""
-    <style>
-    @keyframes pulse_glow {
-        0% { box-shadow: 0 0 10px rgba(56,189,248,0.2); background: #1E293B !important; border-color: #334155 !important; }
-        100% { box-shadow: 0 0 40px #38BDF8, inset 0 0 20px #38BDF8; background: #0284C7 !important; border-color: #38BDF8 !important; }
-    }
-    div[data-testid="stHorizontalBlock"]:nth-of-type(2) div[data-testid="column"]:nth-child(3) div.stButton > button {
-        animation: pulse_glow 1.2s infinite alternate !important;
-    }
-    div[data-testid="stHorizontalBlock"]:nth-of-type(2) div[data-testid="column"]:nth-child(3) div.stButton > button p {
-        color: #FFFFFF !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
 
 # --- 2. 閉域セキュリティ認証 ---
 def check_password():
@@ -146,22 +124,22 @@ def check_password():
     if not st.session_state["authenticated"]:
         if os.path.exists("logo.png"): st.image("logo.png", width=200)
         st.markdown("<h2 style='text-align: center;'>🔒 コンクリート劣化診断システム</h2>", unsafe_allow_html=True)
-        st.text_input("アクセスパスワードを入力", type="password", on_change=password_entered, key="password")
+        st.text_input("アクセスパスワード", type="password", on_change=password_entered, key="password")
         return False
     return True
 
 if check_password():
     api_key = st.secrets.get("GEMINI_API_KEY", "")
 
-    # 業務ヘッダー（1番目のカラムブロック）
+    # 業務ヘッダー（余計な言葉を排除）
     col_logo, col_title = st.columns([1, 6])
     with col_logo:
         if os.path.exists("logo.png"): st.image("logo.png", width=140)
     with col_title:
-        st.markdown("<h1 style='margin-bottom: 0;'>コンクリート構造物 高精密総合診断システム</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='margin-bottom: 0;'>コンクリート劣化診断システム</h1>", unsafe_allow_html=True)
         st.markdown("<p style='color: #38BDF8; font-size: 16px; margin-top: 5px;'>農林水産省機能保全手引き・JCI複合劣化マトリクス完全準拠</p>", unsafe_allow_html=True)
 
-    # 巨大ナビゲーションメニュー（2番目のカラムブロック）
+    # 巨大ナビゲーションメニュー（エラーを出さない完全なボタン制御）
     col_nav1, col_nav2, col_nav3 = st.columns(3)
     with col_nav1: st.button("🏠\n① 設置地域・環境判定", on_click=set_step, args=("step1",), use_container_width=True)
     with col_nav2: st.button("📸\n② 写真・変状チェック入力", on_click=set_step, args=("step2",), use_container_width=True)
@@ -218,7 +196,6 @@ if check_password():
             crack_type = st.selectbox("⑥ 支配的損傷症状", ["ひび割れ（単一）", "浮き・剥離・剥落", "鉄筋露出・爆裂", "エフロ析出伴う漏水", "ASR（３方向クラック）", "スケーリング（凍害・摩耗）"])
         
         region_info = st.text_area("⑦ 現場特記事項", placeholder="例: 交通振動あり、不同沈下の形跡あり等")
-        st.success("✅ 設定が完了しました。画面上部の巨大な『📸 ② 写真・変状チェック入力』ボタンを押してください。")
 
     # ==========================================
     # STEP 2: 現場写真・変状チェック入力
@@ -280,7 +257,7 @@ if check_password():
                 photo_excel_records.append({"no":f"No.{idx+1}","part":p_part,"kind":p_kind,"dim":f"W:{p_w}mm/L:{p_l}cm/A:{p_a}㎡","comment":f"エフロ:{p_efflo}/錆:{p_rust}|{p_c}"})
                 st.markdown("---")
             
-            # 安全・確実なAI解析の実行
+            # 高精密AI診断実行ボタン
             if st.button("🚀 環境マトリクスと全写真データを統合して高精密AI診断を実行", key="execute_analysis_btn", type="primary"):
                 if not api_key: st.error("APIキーが設定されていません。")
                 else:
@@ -289,7 +266,6 @@ if check_password():
                             genai.configure(api_key=api_key)
                             model = genai.GenerativeModel('gemini-2.5-flash')
                             
-                            # セッションキャッシュへ確実な保存
                             st.session_state.excel_records_cache, st.session_state.images_cache = photo_excel_records, images
                             st.session_state.header_data = {
                                 "p": project_name, "l": location_name, "i": inspector_name,
@@ -297,7 +273,7 @@ if check_password():
                                 "c": st.session_state.get("complex_degrade_cache", "一般環境")
                             }
                             
-                            prompt = f"""あなたが作成すべきは、農水省・国交省等へ提出する最高レベルの工学的調査報告書です。
+                            prompt = f"""あなたが作成すべきは、官公庁へ提出する最高レベルの工学的調査報告書です。
 【JCI環境マトリクス】: {st.session_state.header_data['a']} における {st.session_state.header_data['c']} シナリオを考慮。
 【構造物・写真データ】:
 {"/ ".join(photo_details_prompt)}
@@ -307,14 +283,12 @@ if check_password():
                             response = model.generate_content([prompt] + images)
                             st.session_state.full_result_text = response.text
                             
-                            # 正規表現による最大幅抽出の安定化
                             final_w = 0.0
                             match = re.search(r"最大ひび割れ幅:\s*([0-9.]+)", response.text)
                             if match: final_w = float(match.group(1))
                             st.session_state.final_width = final_w
                             st.session_state.analysis_completed = True
                             
-                            # 診断完了後、確実にStep3へ遷移
                             st.session_state.current_step = "step3"
                             st.rerun()
                             
@@ -369,8 +343,7 @@ if check_password():
                         ws[f"A{r}"], ws[f"B{r}"] = l, v
                         ws[f"A{r}"].font, ws[f"A{r}"].fill = Font(name="MS ゴシック", size=11, bold=True), PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
                         ws[f"B{r}"].font = Font(name="MS ゴシック", size=11)
-                        ws[f"A{r}"].border = thin_border
-                        ws[f"B{r}"].border = thin_border
+                        ws[f"A{r}"].border = ws[f"B{r}"].border = thin_border
                         ws[f"A{r}"].alignment = Alignment(horizontal="center", vertical="center")
                         ws[f"B{r}"].alignment = Alignment(wrap_text=True, vertical="top")
                         if i == 5: ws.row_dimensions[r].height = 250
@@ -386,6 +359,4 @@ if check_password():
                 wb.save(output)
                 st.download_button(label="📥 官庁提出用 高精密Excel調書をダウンロード", data=output.getvalue(), file_name=f"確定診断調書_{datetime.now().strftime('%Y%m%d')}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             except Exception as excel_err:
-                st.error(f"Excel写真台帳の生成中にエラーが発生しました: {excel_err}")
-        else:
-            st.info("💡 診断が実行されていません。ステップ②で現場写真をアップロードし、解析を実行してください。")
+                st.error(f"Excel出力エラー: {excel_err}")
