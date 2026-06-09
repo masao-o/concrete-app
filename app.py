@@ -309,3 +309,17 @@ if check_password():
                             start_row += 12
 
                         output = io.BytesIO()
+                        wb.save(output)
+                        
+                        st.markdown("---")
+                        st.download_button(
+                            label="📥 官庁・役所・提出用 高精密Excel写真台帳をダウンロード",
+                            data=output.getvalue(),
+                            file_name=f"【確定写真台帳】{p_name}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+                    except Exception as e:
+                        if "429" in str(e) or "quota" in str(e).lower():
+                            st.error("⚠️ Google AIの利用制限に達しました。1分ほど待ってから再度ボタンを押してください。")
+                        else:
+                            st.error(f"エラーが発生しました: {e}")
