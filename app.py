@@ -13,7 +13,7 @@ from datetime import datetime
 # --- 1. ページ設定とハイエンドUI・次世代点滅ダッシュボードCSS ---
 st.set_page_config(page_title="T&N コンクリート劣化診断 AI Suite Pro", layout="wide")
 
-# セッション状態の初期化（エラー・画面リセットの完全防御用）
+# セッション状態の初期化
 if 'full_result_text' not in st.session_state:
     st.session_state.full_result_text = None
 if 'final_width' not in st.session_state:
@@ -21,7 +21,7 @@ if 'final_width' not in st.session_state:
 if 'analysis_completed' not in st.session_state:
     st.session_state.analysis_completed = False
 if 'current_step' not in st.session_state:
-    st.session_state.current_step = "step1" # 初期ステップ
+    st.session_state.current_step = "step1"
 
 # 解析完了時に③番ボタンをiPhone風に発光・パルス点滅させるアニメーション
 animation_css = ""
@@ -54,22 +54,35 @@ h1, h2, h3, h4, h5, h6, p, span, label, .stMarkdown,
 input, textarea, select, div[data-baseweb="select"] * {{ color: #0F172A !important; font-weight: bold !important; }}
 input::placeholder, textarea::placeholder {{ color: #64748B !important; opacity: 1 !important; }}
 
-/* 【バグ修正】マルチセレクトおよびチェックボックス選択時の「赤色化・オレンジ色化」を完全に根絶 */
+/* マルチセレクトのバッジ（タグ）内の文字色調整 */
 div[data-testid="stMultiSelect"] span[data-baseweb="tag"] * {{
     color: #0F172A !important;
     font-weight: bold !important;
 }}
 
-/* チェックボックスの背景に青を指定し、不本意な赤（警告色）の干渉を上書き防御 */
+/* 【最新徹底修正】チェックボックス選択時のオレンジ・赤色（警告色）を完全に消し去り、信頼の青に固定 */
+div[data-testid="stCheckbox"] div[role="checkbox"] {{
+    border-color: #475569 !important;
+}}
 div[data-testid="stCheckbox"] div[role="checkbox"][aria-checked="true"] {{
     background-color: #0284C7 !important;
     border-color: #38BDF8 !important;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.5) !important;
 }}
+/* チェックマーク（中の✔形状）の白色化を完全固定 */
 div[data-testid="stCheckbox"] div[role="checkbox"] svg {{
     stroke: #FFFFFF !important;
+    fill: none !important;
+}}
+div[data-testid="stCheckbox"] div[role="checkbox"] span {{
+    color: #FFFFFF !important;
+}}
+/* ホバー時のオレンジ発光を無効化 */
+div[data-testid="stCheckbox"] div[role="checkbox"]:hover {{
+    border-color: #38BDF8 !important;
 }}
 
-/* 【新設】iPhoneのホーム画面風「独立型・四角い立体アイコンボタン」スタイル */
+/* iPhoneのホーム画面風「独立型・四角い立体アイコンボタン」スタイル */
 .iphone-nav-container {{
     display: flex;
     gap: 20px;
@@ -81,7 +94,7 @@ div[data-testid="stCheckbox"] div[role="checkbox"] svg {{
     padding: 22px 15px;
     background: linear-gradient(135deg, #1E293B, #111827);
     border: 2px solid #334155;
-    border-radius: 20px; /* iPhone風のなめらかな角丸 */
+    border-radius: 20px;
     text-align: center;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
     cursor: pointer;
@@ -174,8 +187,7 @@ if check_password():
     st.markdown("<h1 style='color: white; margin-bottom: 0;'>🚗 AI Suite Pro</h1>", unsafe_allow_html=True)
     st.markdown("<p style='color: #94A3B8; font-size: 16px;'>実務特化型コンクリート高精密診断ダッシュボード（全指針・点検マニュアル準拠）</p>", unsafe_allow_html=True)
 
-    # --- 3. 【デザイン完全確定】iPhone風タイルメニューを描画＆クリック処理を配置 ---
-    # Streamlit標準のボタンをHTMLタイルの下に隠して連動させる手法
+    # --- 3. iPhone風タイルメニューを描画＆クリック処理を配置 ---
     st.markdown("<p style='color: #38BDF8; font-size:14px; margin-top:15px; margin-bottom:-5px;'>▼ iPhoneスタイル・ナビゲーション（クリックして切り替え）</p>", unsafe_allow_html=True)
     
     col_nav1, col_nav2, col_nav3 = st.columns(3)
@@ -312,7 +324,7 @@ if check_password():
             wet_status = st.multiselect("③ 内部湿潤・漏水状況（複数選択可）", [
                 "漏水なし（常時乾燥状態）", 
                 "微細な湿潤（変色・湿気あり）", 
-                "活動性の漏水あり（水みみちの形成・進行性エフロ）", 
+                "活動性の漏水あり（水みちの形成・進行性エフロ）", 
                 "高水圧環境（ダム・沈殿池等の浸透圧環境）"
             ], default=[])
             crack_type = st.selectbox("⑥ 目視・打診での支配的損傷（全資料対応）", [
@@ -342,7 +354,7 @@ if check_password():
             inspector_name = st.text_input("項目C：調査担当者（コンクリート診断士名）", value="T&N技術管理者")
             
         st.markdown("---")
-        st.markdown("### 🔧 2. 技術者による構造・施工要因の補足チェック（※選択時、綺麗な青色に反転します）")
+        st.markdown("### 🔧 2. 技術者による構造・施工要因の補足チェック（※完全クリーンな青色反転仕様）")
         ch1, ch2, ch3 = st.columns(3)
         with ch1:
             cb_shear = st.checkbox("構造的要因・不同沈下・土圧・耐震性能上のせん断ひび割れ疑い")
@@ -419,7 +431,6 @@ if check_password():
                 })
                 st.markdown("---")
             
-            # 診断ボタン押下時の処理
             if st.button("🚀 所在地気象因数とJCI複合劣化マトリクス、全写真データを統合して高精密AI診断を実行"):
                 st.session_state.analysis_completed = False
                 st.session_state.full_result_text = None
@@ -434,7 +445,6 @@ if check_password():
                                 genai.configure(api_key=api_key)
                                 model = genai.GenerativeModel('gemini-2.5-flash')
                                 
-                                # 永続化のための退避処理
                                 st.session_state.excel_records_cache = photo_excel_records
                                 st.session_state.struct_type_cache = struct_type
                                 st.session_state.weather_summary_cache = auto_weather_summary
@@ -472,7 +482,7 @@ if check_password():
 {photo_details_joined}
 
 【絶対厳守命令】
-1. 写真データの中にクラックスケールが無く、かつ上記の写真個別パラメータでも幅・長さが「0.0」となっている場合は、絶対に寸法を数値としてハルシネーション（捏造）しないでください。その場合は必ず文章の冒頭で「【寸法判定保留】写真から正確な縮尺基準が確認できず実測値も無いため、数値推測を保留します。正確な劣化度評価のため縮尺基準の提供を求めます」と記載し、ユーザーへ逆質問してください。入力がある場合はその確定数値を論拠にしてください。
+1. 写真データの中にクラックスケールが無く、かつ上記の写真個別パラメータでも幅・長さが「0.0」となっている場合は、絶対に寸法を数値としてハルシネーション（捏造）しないでください。その場合は必ず文章の冒頭に「【寸法判定保留】写真から正確な縮尺基準が確認できず実測値も無いため、数値推測を保留します。正確な劣化度評価のため縮尺基準の提供を求めます」と記載し、ユーザーへ逆質問してください。入力がある場合はその確定数値を論拠にしてください。
 2. 判定基準として、JCI複合劣化指針および各点検マニュアルに則り、ひび割れ幅、漏水、エフロ、浮き剥離、鉄筋露出の有無、および2因子以上の複合重畳性を総合評価し、以下の4区分から該当する【劣化度】を必ず選定・明記してください。
    ・劣化度Ⅰ（軽微・経過観察）: ひび割れ幅0.2mm未満、漏水・錆汁なし。単一の初期欠陥・乾燥収縮等。表面含浸等の予防保全。
    ・劣化度Ⅱ（中期・要補修）: ひび割れ幅0.2mm以上1.0mm未満、またはエフロ析出。あるいは軽微な2因子の複合初期症状。低圧エポキシ樹脂注入工法。
@@ -495,8 +505,8 @@ if check_password():
                                     except Exception:
                                         final_w = 0.0
                                 st.session_state.final_width = final_w
-                                st.session_state.analysis_completed = True # 診断フラグON
-                                st.session_state.current_step = "step3" # 自動でタブ③へジャンプ誘導
+                                st.session_state.analysis_completed = True
+                                st.session_state.current_step = "step3" # タブ③へ自動移行
                                 st.rerun()
                                 break 
                                 
