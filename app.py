@@ -63,7 +63,7 @@ if check_password():
     st.markdown("<h1 style='color: white;'>🚗 AI Suite Pro - 実務特化型コンクリート高精密診断システム</h1>", unsafe_allow_html=True)
     st.markdown("---")
     
-    # APIキーの安全な取得（エラーで落ちないように .get を使用）
+    # APIキーの安全な取得
     api_key = st.secrets.get("GEMINI_API_KEY", "")
     
     # --- 3. サイドバー：プロ診断士用 環境条件設定 ---
@@ -143,7 +143,9 @@ if check_password():
                 with st.spinner("🔍 熟練コンクリート診断士AI(Gemini)が過去の実績に基づき統合解析中..."):
                     try:
                         genai.configure(api_key=api_key)
-                        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                        
+                        # 【修正箇所】安定版のモデル名 'gemini-1.5-flash' に変更
+                        model = genai.GenerativeModel('gemini-1.5-flash')
                         
                         env_text = "、".join(env_location) if env_location else "指定なし"
                         wet_text = "、".join(wet_status) if wet_status else "指定なし"
@@ -219,14 +221,12 @@ if check_password():
                         ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
                         ws.page_setup.paperSize = ws.PAPERSIZE_A4
                         
-                        # エラー回避のためのインデックス指定を追加
                         ws.views.sheetView[0].showGridLines = False
 
                         font_header = Font(name="MS ゴシック", size=14, bold=True)
                         font_label = Font(name="MS ゴシック", size=11, bold=True)
                         font_data = Font(name="MS ゴシック", size=11)
                         
-                        # border_style を thin に修正
                         thin_side = Side(border_style="thin")
                         border_cell = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
 
@@ -241,7 +241,7 @@ if check_password():
                         start_row = 1
                         for idx, img in enumerate(images):
                             ws.merge_cells(f"A{start_row}:D{start_row}")
-                            ws[f"A{start_row}"] = f"{p_name} 状 況 写真"
+                            ws[f"A{start_row}"] = f"{p_name} 状 況 写 真"
                             ws[f"A{start_row}"].font = font_header
                             ws.merge_cells(f"A{start_row+1}:D{start_row+1}")
                             ws[f"A{start_row+1}"] = f"施設名： {l_name}"
